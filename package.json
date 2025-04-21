@@ -9,7 +9,10 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@types/cors": "^2.8.17",
     "chess.js": "^1.2.0",
+    "cors": "^2.8.5",
+    "express": "^5.1.0",
     "howler": "^2.2.4",
     "next": "15.2.4",
     "react": "^19.0.0",
@@ -20,6 +23,7 @@
   "devDependencies": {
     "@eslint/eslintrc": "^3",
     "@types/chess.js": "^0.13.7",
+    "@types/express": "^5.0.1",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",

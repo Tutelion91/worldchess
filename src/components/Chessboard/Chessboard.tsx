@@ -77,31 +77,36 @@ export default function Chessboard({playMove, pieces} : Props) {
     }
   }
 
-  function dropPiece(e: React.MouseEvent) {
-    const chessboard = chessboardRef.current;
-    if (activePiece && chessboard) {
-      const x = Math.floor((e.clientX - chessboard.offsetLeft) / GRID_SIZE);
-      const y = Math.abs(
-        Math.ceil((e.clientY - chessboard.offsetTop - 800) / GRID_SIZE)
-      );
+function dropPiece(e: React.MouseEvent) {
+  const chessboard = chessboardRef.current;
+  if (activePiece && chessboard) {
+    const x = Math.floor((e.clientX - chessboard.offsetLeft) / GRID_SIZE);
+    const y = Math.abs(Math.ceil((e.clientY - chessboard.offsetTop - 800) / GRID_SIZE));
 
-      const currentPiece = pieces.find((p) =>
-        p.samePosition(grabPosition)
-      );
+    const currentPiece = pieces.find((p) =>
+      p.samePosition(grabPosition)
+    );
 
-      if (currentPiece) {
-        var succes = playMove(currentPiece.clone(), new Position(x, y));
+    if (currentPiece) {
+      const succes = playMove(currentPiece.clone(), new Position(x, y));
 
-        if(!succes) {
-          //RESETS THE PIECE POSITION
-          activePiece.style.position = "relative";
-          activePiece.style.removeProperty("top");
-          activePiece.style.removeProperty("left");
-        }
+      if (!succes) {
+        // ➔ RESET the piece if the move was illegal
+        activePiece.style.position = "relative";
+        activePiece.style.removeProperty("top");
+        activePiece.style.removeProperty("left");
       }
-      setActivePiece(null);
+    } else {
+      // ➔ No valid piece: Reset anyway
+      activePiece.style.position = "relative";
+      activePiece.style.removeProperty("top");
+      activePiece.style.removeProperty("left");
     }
+
+    setActivePiece(null);
   }
+}
+
 
   let board = [];
 

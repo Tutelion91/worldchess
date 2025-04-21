@@ -1,58 +1,113 @@
-// server.ts
+import express, { Request, Response } from "express";
+import { WebSocketServer, WebSocket } from "ws";
+import http from "http";
+import cors from "cors";
 
-import WebSocket, { WebSocketServer } from 'ws';
-import { createServer } from 'http';
+const app = express();
+app.use(cors());
 
-const server = createServer();
+const server = http.createServer(app);
 const wss = new WebSocketServer({ server });
 
-type GameMessage = {
-  type: 'join' | 'move';
-  gameId: string;
-  data?: any;
-};
+const games: Record<string, { id: string; players: WebSocket[]; timeControl: string; stake: number }> = {};
 
-type ConnectionInfo = {
-  ws: WebSocket;
-  gameId: string;
-};
+console.log("Server läuft auf http://localhost:3001 und WebSocket ws://localhost:3001");
 
-const connections: ConnectionInfo[] = [];
+wss.on("connection", (ws) => {
+  console.log("Ein Spieler hat sich verbunden.");
 
-wss.on('connection', (ws: WebSocket) => {
-  let currentGameId = '';
+  ws.on("message", (message) => {
+    try {
+      const data = JSON.parse(message.toString());
 
-  ws.on('message', (msg: string | Buffer) => {
-    const message: GameMessage = JSON.parse(msg.toString());
-    if (message.type === 'join') {
-      currentGameId = message.gameId;
-      connections.push({ ws, gameId: currentGameId });
-      console.log(`Client joined game ${currentGameId}`);
-    }
+      if (data.type === "new-game") {
+        const newGame = {
+          id: data.payload.id,
+          players: [],
+          timeControl: data.payload.timeControl,
+          stake: data.payload.stake,
+        };
+        games[newGame.id] = newGame;
 
-    if (message.type === 'move') {
-      // Broadcast to other clients in the same game
-      connections
-        .filter((conn) => conn.gameId === message.gameId && conn.ws !== ws)
-        .forEach((conn) => {
-          conn.ws.send(JSON.stringify({
-            type: 'move',
-            data: message.data,
-          }));
+        // Info an alle Clients schicken
+        wss.clients.forEach((client) => {
+          if (client.readyState === WebSocket.OPEN) {
+            client.send(JSON.stringify({ type: "new-game", payload: newGame }));
+          }
         });
+      }
+
+      if (data.type === "join") {
+        const gameId = data.gameId;
+        const game = games[gameId];
+
+        if (!game) {
+          ws.send(JSON.stringify({ type: "error", message: "Spiel existiert nicht" }));
+          return;
+        }
+
+        if (game.players.length >= 2) {
+          ws.send(JSON.stringify({ type: "error", message: "Spielraum voll" }));
+          return;
+        }
+
+        game.players.push(ws);
+        console.log(`Spieler hat Raum ${gameId} betreten.`);
+
+        if (game.players.length === 2) {
+          game.players.forEach((player, index) => {
+            player.send(JSON.stringify({ type: "start", color: index === 0 ? "white" : "black" }));
+          });
+
+          // Wenn 2 Spieler da, entfernen wir das Spiel aus der Warteliste für andere
+          wss.clients.forEach((client) => {
+            if (client.readyState === WebSocket.OPEN) {
+              client.send(JSON.stringify({ type: "game-started", gameId }));
+            }
+          });
+        }
+      }
+
+      if (data.type === "move") {
+        const { gameId, move } = data;
+        const game = games[gameId];
+        if (game) {
+          game.players.forEach((player) => {
+            if (player !== ws && player.readyState === WebSocket.OPEN) {
+              player.send(JSON.stringify({ type: "move", move }));
+            }
+          });
+        }
+      }
+    } catch (err) {
+      console.error("Fehler beim Parsen der Nachricht:", err);
     }
   });
 
-  ws.on('close', () => {
-    const index = connections.findIndex((c) => c.ws === ws);
-    if (index !== -1) {
-      connections.splice(index, 1);
-      console.log(`Client left game ${currentGameId}`);
+  ws.on("close", () => {
+    console.log("Ein Spieler hat die Verbindung geschlossen.");
+
+    // Spieler aus Räumen entfernen
+    for (const gameId in games) {
+      const game = games[gameId];
+      game.players = game.players.filter((player) => player !== ws);
+
+      // Wenn Spiel leer ist, komplett löschen
+      if (game.players.length === 0) {
+        delete games[gameId];
+      }
     }
   });
 });
 
+// HTTP Endpoint: GET /games → gibt alle offenen Spiele
+app.get("/games", (req: Request, res: Response) => {
+  const openGames = Object.values(games).filter((g) => g.players.length < 2);
+  res.json(openGames);
+});
+
+// Server starten
 server.listen(3001, () => {
-  console.log('WebSocket server running on ws://localhost:3001');
+  console.log("HTTP Server läuft auf Port 3001");
 });
 

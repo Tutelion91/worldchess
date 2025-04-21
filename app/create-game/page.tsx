@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { sendMessage } from "@/websocket"; // Wichtig: WebSocket-Senden einbinden!
 
 export default function CreateGamePage() {
   const [timeControl, setTimeControl] = useState("15+10");
@@ -53,13 +54,24 @@ export default function CreateGamePage() {
       {/* Button */}
       <button
         onClick={() => {
-          const newGame = {id: crypto.randomUUID(),timeControl,stake,};
+          const newGame = {
+            id: crypto.randomUUID(),
+            timeControl,
+            stake,
+          };
 
-const existing = JSON.parse(localStorage.getItem("waitingGames") || "[]");
-localStorage.setItem("waitingGames", JSON.stringify([...existing, newGame]));
+          // Im eigenen localStorage speichern (lokal, damit man im eigenen Fenster warten kann)
+          const existing = JSON.parse(localStorage.getItem("waitingGames") || "[]");
+          localStorage.setItem("waitingGames", JSON.stringify([...existing, newGame]));
 
-// Weiterleitung
-window.location.href = `/waiting-room/${newGame.id}`;
+          // *** WebSocket Nachricht an Server schicken ***
+          sendMessage({
+            type: "new-game",
+            payload: newGame,
+          });
+
+          // Weiterleitung in den Warteraum
+          window.location.href = `/waiting-room/${newGame.id}`;
         }}
         className="mt-4 px-6 py-3 bg-green-600 hover:bg-green-700 rounded text-white font-semibold"
       >

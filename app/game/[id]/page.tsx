@@ -1,5 +1,5 @@
 "use client";
-
+import { connectToGame, sendMove, setGameId } from "@/src/websocket";
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import App from "../../../src/App";
@@ -11,6 +11,7 @@ export default function GamePage() {
   const [game, setGame] = useState<any>(null);
 
   useEffect(() => {
+    connectToGame(id);
     const stored = localStorage.getItem(`game-${id}`);
     if (stored) {
       const data = JSON.parse(stored);

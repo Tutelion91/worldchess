@@ -20,6 +20,9 @@ import {
 import { PieceType, TeamType } from "../../Types";
 import Chessboard from "../Chessboard/Chessboard";
 import { Howl } from "howler";
+import { sendMove } from "@/src/websocket";
+import { onMove } from "@/src/websocket";
+
 
 const moveSound = new Howl({
   src: ["/sounds/move-self.mp3"],
@@ -37,7 +40,37 @@ export default function Referee() {
   const [board, setBoard] = useState<Board>(initialBoard.clone());
   const [promotionPawn, setPromotionPawn] = useState<Piece>();
   const modalRef = useRef<HTMLDivElement>(null);
+  const stalemateModalRef = useRef<HTMLDivElement>(null);
   const checkmateModalRef = useRef<HTMLDivElement>(null);
+
+useEffect(() => {
+  const unsubscribe = onMove((move: { from: { x: number; y: number }; to: { x: number; y: number } }) => {
+    setBoard((currentBoard) => {
+      const clonedBoard = currentBoard.clone();
+
+      const piece = clonedBoard.pieces.find((p) =>
+        p.position.x === move.from.x && p.position.y === move.from.y
+      );
+
+      if (piece) {
+        clonedBoard.playMove(
+          false, // Kein En Passant nötig
+          true,  // Wir vertrauen darauf, dass der Zug korrekt ist
+          piece,
+          new Position(move.to.x, move.to.y)
+        );
+        clonedBoard.totalTurns += 1;
+      }
+
+      return clonedBoard;
+    });
+  });
+
+  return () => {
+    unsubscribe();
+  };
+}, []);
+
 
   function playMove(playedPiece: Piece, destination: Position): boolean {
     // If the playing piece doesn't have any moves return
@@ -66,28 +99,42 @@ export default function Referee() {
 
     // playMove modifies the board thus we
     // need to call setBoard
-    setBoard(() => {
-      const clonedBoard = board.clone();
-      clonedBoard.totalTurns += 1;
-      // Playing the move
-      playedMoveIsValid = clonedBoard.playMove(
-        enPassantMove,
-        validMove,
-        playedPiece,
-        destination
-      );
+setBoard(() => {
+  const clonedBoard = board.clone();
 
-      if (playedMoveIsValid) {
-        moveSound.play();
-      }
+  const moveWasPlayed = clonedBoard.playMove(
+    enPassantMove,
+    validMove,
+    playedPiece,
+    destination
+  );
 
-      if (clonedBoard.winningTeam !== undefined) {
-        checkmateModalRef.current?.classList.remove("hidden");
-        checkmateSound.play();
-      }
+  if (moveWasPlayed) {
+    moveSound.play();
+    clonedBoard.totalTurns += 1;
 
+    const nextTeam = playedPiece.team === TeamType.OUR ? TeamType.OPPONENT : TeamType.OUR;
+    clonedBoard.calculateAllMoves();
+
+    if (isStalemate(clonedBoard, nextTeam)) {
+      stalemateModalRef.current?.classList.remove("hidden");
       return clonedBoard;
-    });
+    }
+
+    if (clonedBoard.winningTeam !== undefined) {
+      checkmateModalRef.current?.classList.remove("hidden");
+      checkmateSound.play();
+    }
+  }
+
+  return clonedBoard;
+});
+
+sendMove({
+  from: { x: playedPiece.position.x, y: playedPiece.position.y },
+  to: { x: destination.x, y: destination.y },
+});
+
 
     // This is for promoting a pawn
     let promotionRow = playedPiece.team === TeamType.OUR ? 7 : 0;
@@ -133,6 +180,31 @@ export default function Referee() {
 
     return false;
   }
+
+function isStalemate(board: Board, team: TeamType): boolean {
+  const teamPieces = board.pieces.filter(p => p.team === team);
+
+  for (let piece of teamPieces) {
+    if (piece.possibleMoves && piece.possibleMoves.length > 0) {
+      return false;
+    }
+  }
+
+  // Alle Figuren haben 0 Züge → prüfen ob König im Schach steht
+  const king = teamPieces.find(p => p.type === PieceType.KING);
+  if (!king) return false;
+
+  const enemyMoves = board.pieces
+    .filter(p => p.team !== team && p.possibleMoves)
+    .flatMap(p => p.possibleMoves!);
+
+  const inCheck = enemyMoves.some(move =>
+    move.samePosition(king.position)
+  );
+
+  return !inCheck;
+}
+
 
   //TODO
   //Add stalemate!
@@ -267,6 +339,15 @@ export default function Referee() {
           </div>
         </div>
       </div>
+      <div className="modal hidden" ref={stalemateModalRef}>
+  <div className="modal-body">
+    <div className="checkmate-body">
+      <span>Stalemate! Das Spiel endet unentschieden.</span>
+      <button onClick={restartGame}>Play again</button>
+    </div>
+  </div>
+</div>
+
       <Chessboard playMove={playMove} pieces={board.pieces} />
     </>
   );

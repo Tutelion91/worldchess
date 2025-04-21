@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { onMessage, sendMessage } from "@/websocket";
 
 type WaitingGame = {
   id: string;
@@ -12,16 +13,29 @@ export default function WaitingGamesPage() {
   const [games, setGames] = useState<WaitingGame[]>([]);
 
   useEffect(() => {
-    const raw = localStorage.getItem("waitingGames");
-    if (raw) {
-      setGames(JSON.parse(raw));
+  fetch("http://localhost:3001/games")
+      .then((res) => res.json())
+      .then((data) => setGames(data))
+      .catch((err) => console.error("Fehler beim Laden der Spiele:", err));
+
+  // Nachrichten vom Server empfangen
+  onMessage((msg) => {
+    if (msg.type === "new-game") {
+      setGames((prev) => [...prev, msg.payload]);
     }
-  }, []);
+    if (msg.type === "waiting-games") {
+      setGames(msg.payload);
+    }
+  });
+
+  // Direkt beim Start nach wartenden Spielen fragen
+  sendMessage({ type: "get-waiting-games" });
+}, []);
 
   const handleJoin = (selectedGame: WaitingGame) => {
     const existing = JSON.parse(localStorage.getItem("waitingGames") || "[]");
 
-    // Entferne das Spiel aus der Warteliste
+    // Entferne das Spiel aus der lokalen Warteliste
     const updated = existing.filter((g: any) => g.id !== selectedGame.id);
     localStorage.setItem("waitingGames", JSON.stringify(updated));
 
