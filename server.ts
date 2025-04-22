@@ -115,8 +115,11 @@ wss.on("connection", (ws) => {
     // Alle Räume säubern
     for (const id in games) {
       const room = games[id];
+    if (room.started && room.players.includes(ws)) {
       room.players = room.players.filter((p) => p !== ws);
-      if (room.started && room.players.length === 0) delete games[id];
+      if (room.players.length === 0) {
+        console.log("Lösche fertig gespielten Raum", id);
+        delete games[id];}}
     }
   });
   ws.on("message", (message) => {

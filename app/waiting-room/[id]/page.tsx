@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useParams } from "next/navigation";
 import { useRouter } from "next/navigation";
+import { connectSocket, sendMessage, onMessage } from "@/websocket";
 
 export default function WaitingRoomPage() {
   const { id } = useParams();
@@ -10,6 +11,15 @@ export default function WaitingRoomPage() {
 
   // Lösche das Spiel beim Verlassen der Seite
 useEffect(() => {
+   console.log("[waiting-room] connect & join", id);
+   connectSocket();
+   sendMessage({ type: "join", gameId: id });
+   onMessage((msg) => {
+     if (msg.type === "start") {
+       console.log("[waiting-room] Spiel startet!", msg.color);
+       router.push(`/game/${id}`);
+     }
+   });
   // Spiel löschen, wenn Seite verlassen wird
   const handleBeforeUnload = () => {
     const existing = JSON.parse(localStorage.getItem("waitingGames") || "[]");
@@ -19,19 +29,10 @@ useEffect(() => {
 
   window.addEventListener("beforeunload", handleBeforeUnload);
 
-  // Alle 1 Sekunde prüfen, ob Spiel gestartet wurde
-  const interval = setInterval(() => {
-    const joinedGame = localStorage.getItem(`game-${id}`);
-    if (joinedGame) {
-      clearInterval(interval);
-      window.location.href = `/game/${id}`;
-    }
-  }, 1000);
 
   return () => {
     handleBeforeUnload();
     window.removeEventListener("beforeunload", handleBeforeUnload);
-    clearInterval(interval);
   };
 }, [id]);
 

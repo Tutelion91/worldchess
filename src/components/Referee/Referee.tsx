@@ -20,8 +20,8 @@ import {
 import { PieceType, TeamType } from "../../Types";
 import Chessboard from "../Chessboard/Chessboard";
 import { Howl } from "howler";
-import { sendMove } from "@/src/websocket";
-import { onMove } from "@/src/websocket";
+import { sendMove } from "@/websocket";
+import { onMove } from "@/websocket";
 
 
 const moveSound = new Howl({
