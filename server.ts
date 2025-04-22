@@ -12,7 +12,7 @@ app.use(express.json());
 // In‑Memory Speicher für offene Spiele
 const games: Record<
   string,
-  { id: string; players: WebSocket[]; timeControl: string; stake: number }
+  { id: string; players: WebSocket[]; timeControl: string; stake: number; started: boolean; }
 > = {};
 
 // HTTP‑Server starten
@@ -54,6 +54,7 @@ wss.on("connection", (ws) => {
         players: [] as WebSocket[],
         timeControl: data.payload.timeControl,
         stake: data.payload.stake,
+        started: false,
       };
       games[newGame.id] = newGame;
       // Broadcast an alle verbundenen Clients
@@ -79,6 +80,7 @@ wss.on("connection", (ws) => {
 
       // sobald 2 Spieler, Spiel starten und Warteliste bereinigen
       if (game.players.length === 2) {
+      game.started = true;
         // an beide Spieler Start-Nachricht senden
         game.players.forEach((player, i) => {
           player.send(
@@ -114,8 +116,22 @@ wss.on("connection", (ws) => {
     for (const id in games) {
       const room = games[id];
       room.players = room.players.filter((p) => p !== ws);
-      if (room.players.length === 0) delete games[id];
+      if (room.started && room.players.length === 0) delete games[id];
     }
   });
+  ws.on("message", (message) => {
+  console.log("[Server] Nachricht reinkommend:", message.toString());
+  const data = JSON.parse(message.toString());
+  if (data.type === "get-waiting-games") {
+    console.log("[Server] get-waiting-games erhalten");
+    // ...
+  }
+  if (data.type === "new-game") {
+    console.log("[Server] new-game payload:", data.payload);
+    // ...
+  }
+  // etc.
+});
+
 });
 

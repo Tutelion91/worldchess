@@ -1,11 +1,38 @@
 "use client";
 
-import { useState } from "react";
-import { sendMessage } from "@/websocket"; // Wichtig: WebSocket-Senden einbinden!
+import { useState, useEffect } from "react";
+import { connectSocket, sendMessage } from "@/websocket";
 
 export default function CreateGamePage() {
   const [timeControl, setTimeControl] = useState("15+10");
   const [stake, setStake] = useState(1);
+
+  // A1) Component‑Mount: WS‑Verbindung anstoßen
+  useEffect(() => {
+    console.log("[create-game] Mount → connectSocket()");
+    connectSocket();
+  }, []);
+
+  const handleCreate = () => {
+    const newGame = {
+      id: crypto.randomUUID(),
+      timeControl,
+      stake,
+    };
+
+    console.log("[create-game] Button geklickt, newGame:", newGame);
+
+    // optional: localStorage
+    const existing = JSON.parse(localStorage.getItem("waitingGames") || "[]");
+    localStorage.setItem("waitingGames", JSON.stringify([...existing, newGame]));
+
+    // A2) WS‑Nachricht senden
+    console.log("[create-game] sende WS new-game");
+    sendMessage({ type: "new-game", payload: newGame });
+
+    // A3) Weiterleitung
+    window.location.href = `/waiting-room/${newGame.id}`;
+  };
 
   return (
     <div className="min-h-screen bg-blue-900 text-white p-8 flex flex-col items-center space-y-8">
@@ -53,26 +80,7 @@ export default function CreateGamePage() {
 
       {/* Button */}
       <button
-        onClick={() => {
-          const newGame = {
-            id: crypto.randomUUID(),
-            timeControl,
-            stake,
-          };
-
-          // Im eigenen localStorage speichern (lokal, damit man im eigenen Fenster warten kann)
-          const existing = JSON.parse(localStorage.getItem("waitingGames") || "[]");
-          localStorage.setItem("waitingGames", JSON.stringify([...existing, newGame]));
-
-          // *** WebSocket Nachricht an Server schicken ***
-          sendMessage({
-            type: "new-game",
-            payload: newGame,
-          });
-
-          // Weiterleitung in den Warteraum
-          window.location.href = `/waiting-room/${newGame.id}`;
-        }}
+        onClick={handleCreate}
         className="mt-4 px-6 py-3 bg-green-600 hover:bg-green-700 rounded text-white font-semibold"
       >
         Spiel erstellen
