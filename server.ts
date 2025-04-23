@@ -81,10 +81,14 @@ wss.on("connection", (ws) => {
       // sobald 2 Spieler, Spiel starten und Warteliste bereinigen
       if (game.players.length === 2) {
       game.started = true;
+      const payload = {
+    id:      game.id,
+    stake:   game.stake,
+    started: true};
         // an beide Spieler Start-Nachricht senden
         game.players.forEach((player, i) => {
           player.send(
-            JSON.stringify({ type: "start", color: i === 0 ? "white" : "black" })
+            JSON.stringify({ type: "start", id: game.id, color: i === 0 ? "white" : "black", stake: game.stake, started: true })
           );
         });
         // Wartelisten‑Client informieren, dass Spiel wegfällt

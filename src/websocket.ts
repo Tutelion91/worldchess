@@ -47,15 +47,23 @@ export function sendMessage(message: any) {
 }
 
 // registriert den Callback für eingehende Nachrichten
-export function onMessage(callback: (data: any) => void) {
-  if (!socket) return;
-  socket.onmessage = (event) => {
+export function onMessage(callback: (data: any) => void): () => void {
+  if (!socket) return () => {};
+
+  const handler = (event: MessageEvent) => {
+    let data: any;
     try {
-      const data = JSON.parse(event.data);
-      callback(data);
+      data = JSON.parse(event.data);
     } catch {
-      console.error("[WebSocket] ungültige Nachricht", event.data);
+      console.error("[WebSocket] Ungültige Nachricht:", event.data);
+      return;
     }
+    callback(data);
+  };
+
+  socket.addEventListener("message", handler);
+  return () => {
+    socket.removeEventListener("message", handler);
   };
 }
 
@@ -77,4 +85,14 @@ export function sendMove(move: any) {
 export function requestWaitingGames() {
   sendMessage({ type: "get-waiting-games" });
 }
-
+export function setGameId(gameId: string) {
+  currentGameId = gameId;
+}
+export function onMove(callback: (move: any) => void): () => void {
+  // wir nutzen onMessage und filtern nur move-Events heraus
+  return onMessage(data => {
+    if (data.type === "move") {
+      callback(data.move);
+    }
+  });
+}
