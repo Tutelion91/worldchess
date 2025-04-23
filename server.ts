@@ -81,14 +81,17 @@ wss.on("connection", (ws) => {
       // sobald 2 Spieler, Spiel starten und Warteliste bereinigen
       if (game.players.length === 2) {
       game.started = true;
-      const payload = {
+      const gameData = {
     id:      game.id,
+    player1: "Player 1", 
+    player2: "Player 2", 
     stake:   game.stake,
     started: true};
         // an beide Spieler Start-Nachricht senden
         game.players.forEach((player, i) => {
           player.send(
-            JSON.stringify({ type: "start", id: game.id, color: i === 0 ? "white" : "black", stake: game.stake, started: true })
+            JSON.stringify({ type: "start", payload: gameData, 
+        color: i === 0 ? "white" : "black" })
           );
         });
         // Wartelisten‑Client informieren, dass Spiel wegfällt
@@ -126,19 +129,19 @@ wss.on("connection", (ws) => {
         delete games[id];}}
     }
   });
-  ws.on("message", (message) => {
-  console.log("[Server] Nachricht reinkommend:", message.toString());
-  const data = JSON.parse(message.toString());
-  if (data.type === "get-waiting-games") {
-    console.log("[Server] get-waiting-games erhalten");
+//  ws.on("message", (message) => {
+//  console.log("[Server] Nachricht reinkommend:", message.toString());
+//  const data = JSON.parse(message.toString());
+//  if (data.type === "get-waiting-games") {
+//    console.log("[Server] get-waiting-games erhalten");
     // ...
-  }
-  if (data.type === "new-game") {
-    console.log("[Server] new-game payload:", data.payload);
+//  }
+//  if (data.type === "new-game") {
+//    console.log("[Server] new-game payload:", data.payload);
     // ...
-  }
+//  }
   // etc.
-});
+//});
 
 });
 
