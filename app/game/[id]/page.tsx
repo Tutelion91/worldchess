@@ -28,15 +28,15 @@ export default function GamePage() {
     const offMsg = onMessage((data: any) => {
       console.log("[WS] received:", data);
 
-      if (data.type === "start" && data.payload.id === id) {
+      if (data.type === "start") {
         // payload enthält: id, player1, player2, stake, started
-        setGame({ ...data.payload });
-      }
+        setGame({data.payload });
+      };
 
       // Move-Events direkt ans Referee/Board weiterleiten
       if (data.type === "move") {
         // sendMove fürs lokale Update ignorieren (Referee nutzt onMove)
-      }
+      };
     });
 
     // 2) Direkt beim Mount initial per HTTP holen, falls man
