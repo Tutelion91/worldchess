@@ -30,13 +30,13 @@ export default function GamePage() {
 
       if (data.type === "start") {
         // payload enthält: id, player1, player2, stake, started
-        setGame({data.payload });
-      };
+        setGame(data.payload );
+      }
 
       // Move-Events direkt ans Referee/Board weiterleiten
       if (data.type === "move") {
         // sendMove fürs lokale Update ignorieren (Referee nutzt onMove)
-      };
+      }
     });
 
     // 2) Direkt beim Mount initial per HTTP holen, falls man
@@ -60,13 +60,13 @@ export default function GamePage() {
   }, [id]);
 
   // 4) UI-Zustände
-  if (!game) {
-    return (
-      <div className="min-h-screen bg-blue-900 text-white flex items-center justify-center">
-        <p className="text-xl">Spiel wird geladen…</p>
-      </div>
-    );
-  }
+//  if (!game) {
+//    return (
+//      <div className="min-h-screen bg-blue-900 text-white flex items-center justify-center">
+//        <p className="text-xl">Spiel wird geladen…</p>
+//      </div>
+//    );
+//  }
   if (!game.started) {
     return (
       <div className="min-h-screen bg-blue-900 text-white flex items-center justify-center">
