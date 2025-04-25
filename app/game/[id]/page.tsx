@@ -22,9 +22,11 @@ import App from "../../../src/App";
 export default function GamePage() {
   const { id } = useParams() as { id: string };
   const [game, setGame] = useState<Game | null>(null);
-
+  const [error, setError] = useState(null);
+  
   useEffect(() => {
     // 1) WS initial aufbauen und Listener ANMELDEN
+    console.log("GamePage component mounted with gameId:", id); // Hinzugefügt
     console.log("Current game state:", game);
     connectSocket();
     const offMsg = onMessage((data: any) => {
@@ -39,12 +41,13 @@ export default function GamePage() {
       // Move-Events direkt ans Referee/Board weiterleiten
       if (data.type === "move") {
         // sendMove fürs lokale Update ignorieren (Referee nutzt onMove)
+        console.log("[WS] move event received (ignored in GamePage)"); // Hinzugefügt
       }
-            if (data.type === "player") {
+      if (data.type === "player") {
         console.log("[WS] player info received:", data.payload);
-        setPlayer(data.payload);
+        //setPlayer(data.payload); // auskommentiert, da setPlayer nicht definiert ist
       }
-            if (data.type === "error") {
+      if (data.type === "error") {
         console.error("[WS] error received:", data.message);
         setError(data.message);
       }
@@ -52,29 +55,44 @@ export default function GamePage() {
 
     // 2) Direkt beim Mount initial per HTTP holen, falls man
     //    als Ersteller schon alle Daten hat
+    console.log("Fetching game data from API..."); // Hinzugefügt
     fetch("http://localhost:3001/games")
-      .then(res => res.json())
-      .then((list: Game[]) => {
-        const found = list.find(g => g.id === id);
-        if (found) setGame(found);
+      .then(res => {
+        console.log("API response:", res); // Hinzugefügt
+        return res.json();
       })
-      .catch(console.error);
+      .then((list: Game[]) => {
+        console.log("Games list from API:", list); // Hinzugefügt
+        const found = list.find(g => g.id === id);
+        if (found) {
+          console.log("Found game:", found); // Hinzugefügt
+          setGame(found);
+        } else {
+          console.log("Game not found with id:", id); // Hinzugefügt
+        }
+      })
+      .catch(err => {
+        console.error("Error fetching game data:", err); // Hinzugefügt
+      });
 
     // 3) Spiel joinen
+    console.log("Joining game with id:", id); // Hinzugefügt
     connectToGame(id);
     setGameId(id);
 
     // Cleanup beim Unmount
     return () => {
+      console.log("GamePage component unmounted"); // Hinzugefügt
       offMsg();
     };
   }, [id]);
 
-//  4) UI-Zustände
+  //  4) UI-Zustände
   if (!game) {
     return (
       <div className="min-h-screen bg-blue-900 text-white flex items-center justify-center">
         <p className="text-xl">Spiel wird geladen…</p>
+        {error && <p className="text-red-500 ml-4">Error: {error}</p>} {/* Hinzugefügt */}
       </div>
     );
   }
@@ -82,6 +100,7 @@ export default function GamePage() {
     return (
       <div className="min-h-screen bg-blue-900 text-white flex items-center justify-center">
         <p className="text-xl">Warte auf Gegner…</p>
+        {error && <p className="text-red-500 ml-4">Error: {error}</p>} {/* Hinzugefügt */}
       </div>
     );
   }
@@ -109,4 +128,3 @@ export default function GamePage() {
     </div>
   );
 }
-

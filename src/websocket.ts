@@ -7,6 +7,7 @@ const WS_URL = "ws://localhost:8080";
 export function connectSocket() {
   if (!socket || socket.readyState === WebSocket.CLOSED) {
     socket = new WebSocket(WS_URL);
+    console.log("Connecting to WebSocket..."); // Hinzugefügt
 
     socket.onopen = () => {
       console.log("[WebSocket] verbunden");
@@ -23,12 +24,16 @@ export function connectSocket() {
 
 // sendet eine Nachricht zuverlässig (öffnet ggf. neu)
 export function sendMessage(message: any) {
+  console.log("sendMessage called with message:", message); // Hinzugefügt
   if (socket?.readyState === WebSocket.OPEN) {
+    console.log("WebSocket is open, sending message:", message); // Hinzugefügt
     socket.send(JSON.stringify(message));
   } else if (socket?.readyState === WebSocket.CONNECTING) {
+    console.log("WebSocket is connecting, adding event listener for open event"); // Hinzugefügt
     socket.addEventListener(
       "open",
       () => {
+        console.log("WebSocket is open, sending message:", message); // Hinzugefügt
         socket?.send(JSON.stringify(message));
       },
       { once: true }
@@ -39,6 +44,7 @@ export function sendMessage(message: any) {
     socket?.addEventListener(
       "open",
       () => {
+        console.log("WebSocket is open after reconnect, sending message:", message); // Hinzugefügt
         socket?.send(JSON.stringify(message));
       },
       { once: true }
@@ -54,6 +60,7 @@ export function onMessage(callback: (data: any) => void): () => void {
     let data: any;
     try {
       data = JSON.parse(event.data);
+      console.log("Received WebSocket message:", data); // Hinzugefügt
     } catch {
       console.error("[WebSocket] Ungültige Nachricht:", event.data);
       return;
@@ -69,6 +76,7 @@ export function onMessage(callback: (data: any) => void): () => void {
 
 // Spiel beitreten
 export function connectToGame(gameId: string) {
+  console.log("connectToGame called with gameId:", gameId); // Hinzugefügt
   connectSocket();
   sendMessage({ type: "join", gameId });
   currentGameId = gameId;
@@ -77,12 +85,14 @@ export function connectToGame(gameId: string) {
 // Spielzug senden
 export function sendMove(move: any) {
   if (currentGameId) {
+    console.log("Sending move:", move, "for gameId:", currentGameId); // Hinzugefügt
     sendMessage({ type: "move", gameId: currentGameId, move });
   }
 }
 
 // initial die Warteliste abfragen
 export function requestWaitingGames() {
+  console.log("requestWaitingGames called"); // Hinzugefügt
   sendMessage({ type: "get-waiting-games" });
 }
 export function setGameId(gameId: string) {

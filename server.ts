@@ -57,12 +57,15 @@ wss.on("connection", (ws) => {
         started: false,
       };
       games[newGame.id] = newGame;
+       console.log("[Server] Spiel erstellt:", newGame.id);
       // Broadcast an alle verbundenen Clients
       wss.clients.forEach((client) => {
         if (client.readyState === WebSocket.OPEN) {
-          client.send(JSON.stringify({ type: "new-game", payload: newGame }));
+          const openGames = Object.values(games).filter((g) => g.players.length < 2);
+      client.send(JSON.stringify({ type: "waiting-games", payload: openGames }));
         }
       });
+      ws.send(JSON.stringify({ type: "new-game-ack", gameId: newGame.id }));
     }
 
     // 3) Join eines Spielers
@@ -75,6 +78,9 @@ wss.on("connection", (ws) => {
       if (game.players.length >= 2) {
         return ws.send(JSON.stringify({ type: "error", message: "Raum voll" }));
       }
+      if (game.players.includes(ws)) {
+    return ws.send(JSON.stringify({ type: "error", message: "Du bist bereits in diesem Raum" }));
+  }
       game.players.push(ws);
       console.log(`Spieler beigetreten: ${gameId}`);
 
@@ -122,11 +128,13 @@ wss.on("connection", (ws) => {
     // Alle Räume säubern
     for (const id in games) {
       const room = games[id];
-    if (room.started && room.players.includes(ws)) {
       room.players = room.players.filter((p) => p !== ws);
       if (room.players.length === 0) {
         console.log("Lösche fertig gespielten Raum", id);
-        delete games[id];}}
+        delete games[id]}
+        else if (room.started) { // Benachrichtige verbleibende Spieler nur, wenn das Spiel gestartet wurde
+      room.players.forEach(player => {
+        player.send(JSON.stringify({ type: "game-aborted", message: "Gegner hat das Spiel verlassen" }))})}
     }
   });
 //  ws.on("message", (message) => {

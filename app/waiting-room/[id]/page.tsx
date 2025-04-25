@@ -13,13 +13,18 @@ export default function WaitingRoomPage() {
 useEffect(() => {
    console.log("[waiting-room] connect & join", id);
    connectSocket();
-   sendMessage({ type: "join", gameId: id });
-   onMessage((msg) => {
-     if (msg.type === "start") {
-       console.log("[waiting-room] Spiel startet!", msg.color);
-       router.push(`/game/${id}`);
+     let gameCreated = false;
+  onMessage((msg) => {
+    if (msg.type === "game-created") {
+      gameCreated = true;
+      sendMessage({ type: "join", gameId: id });
+    }
+    if (msg.type === "start") {
+      console.log("[waiting-room] Spiel startet!", msg.color);
+      router.push(`/game/${id}`);
      }
    });
+   
   // Spiel löschen, wenn Seite verlassen wird
   const handleBeforeUnload = () => {
     const existing = JSON.parse(localStorage.getItem("waitingGames") || "[]");

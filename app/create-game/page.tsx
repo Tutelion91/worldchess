@@ -1,17 +1,27 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { connectSocket, sendMessage } from "@/websocket";
+import { connectSocket, sendMessage, onMessage } from "@/websocket";
+import { useRouter } from 'next/navigation';
 
 export default function CreateGamePage() {
   const [timeControl, setTimeControl] = useState("15+10");
   const [stake, setStake] = useState(1);
-
+  const router = useRouter();
   // A1) Component‑Mount: WS‑Verbindung anstoßen
   useEffect(() => {
     console.log("[create-game] Mount → connectSocket()");
     connectSocket();
-  }, []);
+    const offMsg = onMessage((msg) => {
+      if (msg.type === "new-game-ack") {
+        console.log("[create-game] Bestätigung vom Server erhalten, Weiterleitung...");
+        router.push(`/waiting-room/${msg.gameId}`);
+         }
+    });
+      return () => {
+      offMsg();
+         };
+  }, [router]);
 
   const handleCreate = () => {
     const newGame = {
@@ -31,7 +41,7 @@ export default function CreateGamePage() {
     sendMessage({ type: "new-game", payload: newGame });
 
     // A3) Weiterleitung
-    window.location.href = `/waiting-room/${newGame.id}`;
+//    window.location.href = `/waiting-room/${newGame.id}`;
   };
 
   return (
