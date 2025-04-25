@@ -10,13 +10,14 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import App from "../../../src/App";
 
-type Game = {
-  id: string;
-  player1: string;
-  player2: string;
-  stake: number;
-  started: boolean;
-};
+
+//type Game = {
+//  id: string;
+//  player1: string;
+//  player2: string;
+//  stake: number;
+//  started: boolean;
+//};
 
 export default function GamePage() {
   const { id } = useParams() as { id: string };
@@ -24,18 +25,28 @@ export default function GamePage() {
 
   useEffect(() => {
     // 1) WS initial aufbauen und Listener ANMELDEN
+    console.log("Current game state:", game);
     connectSocket();
     const offMsg = onMessage((data: any) => {
       console.log("[WS] received:", data);
 
       if (data.type === "start") {
         // payload enthält: id, player1, player2, stake, started
+        console.log("Start event received with payload:", data.payload);
         setGame(data.payload );
       }
 
       // Move-Events direkt ans Referee/Board weiterleiten
       if (data.type === "move") {
         // sendMove fürs lokale Update ignorieren (Referee nutzt onMove)
+      }
+            if (data.type === "player") {
+        console.log("[WS] player info received:", data.payload);
+        setPlayer(data.payload);
+      }
+            if (data.type === "error") {
+        console.error("[WS] error received:", data.message);
+        setError(data.message);
       }
     });
 
@@ -59,14 +70,14 @@ export default function GamePage() {
     };
   }, [id]);
 
-  // 4) UI-Zustände
-//  if (!game) {
-//    return (
-//      <div className="min-h-screen bg-blue-900 text-white flex items-center justify-center">
-//        <p className="text-xl">Spiel wird geladen…</p>
-//      </div>
-//    );
-//  }
+//  4) UI-Zustände
+  if (!game) {
+    return (
+      <div className="min-h-screen bg-blue-900 text-white flex items-center justify-center">
+        <p className="text-xl">Spiel wird geladen…</p>
+      </div>
+    );
+  }
   if (!game.started) {
     return (
       <div className="min-h-screen bg-blue-900 text-white flex items-center justify-center">
