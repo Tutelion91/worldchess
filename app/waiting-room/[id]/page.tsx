@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import { useParams } from "next/navigation";
 import { useRouter } from "next/navigation";
-import { connectSocket, sendMessage, onMessage } from "@/websocket";
+import { connectSocket, sendMessage, onMessage, connectToGame } from "@/websocket";
 
 export default function WaitingRoomPage() {
   const { id } = useParams();
@@ -13,12 +13,13 @@ export default function WaitingRoomPage() {
 useEffect(() => {
    console.log("[waiting-room] connect & join", id);
    connectSocket();
-   sendMessage({ type: "join", gameId: id });
+   //sendMessage({ type: "join", gameId: id });
+   connectToGame(id);
      let gameCreated = false;
   onMessage((msg) => {
     if (msg.type === "game-created") {
       gameCreated = true;
-      sendMessage({ type: "join", gameId: id });
+      //sendMessage({ type: "join", gameId: id });
     }
     if (msg.type === "start") {
       console.log("[waiting-room] Spiel startet!", msg.color);

@@ -29,8 +29,8 @@ export default function GamePage() {
     // 1) WS initial aufbauen und Listener ANMELDEN
     console.log("GamePage component mounted with gameId:", id); // Hinzugefügt
     console.log("Current game state:", game);
-    connectSocket();
-    sendMessage({ type: "join", gameId: id });
+    //connectSocket();
+    //sendMessage({ type: "join", gameId: id });
     const offMsg = onMessage((data: any) => {
       console.log("[WS] received:", data);
 
@@ -38,7 +38,7 @@ export default function GamePage() {
         // payload enthält: id, player1, player2, stake, started
         console.log("Start event received with payload:", data.payload);
         router.push(`/game/${id}`);
-        setGame(data.payload );
+        //setGame(data.payload );
       }
 
       // Move-Events direkt ans Referee/Board weiterleiten
@@ -79,9 +79,9 @@ export default function GamePage() {
       });
 
     // 3) Spiel joinen
-    console.log("Joining game with id:", id); // Hinzugefügt
-    connectToGame(id);
-    setGameId(id);
+    //console.log("Joining game with id:", id); // Hinzugefügt
+    //connectToGame(id);
+    //setGameId(id);
 
     // Cleanup beim Unmount
     return () => {
