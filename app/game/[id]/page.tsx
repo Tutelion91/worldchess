@@ -4,6 +4,7 @@ import {
   connectToGame,
   onMessage,
   sendMove,
+  sendMessage,
   setGameId
 } from "@/websocket";
 import { useEffect, useState } from "react";
@@ -29,12 +30,14 @@ export default function GamePage() {
     console.log("GamePage component mounted with gameId:", id); // Hinzugefügt
     console.log("Current game state:", game);
     connectSocket();
+    sendMessage({ type: "join", gameId: id });
     const offMsg = onMessage((data: any) => {
       console.log("[WS] received:", data);
 
       if (data.type === "start") {
         // payload enthält: id, player1, player2, stake, started
         console.log("Start event received with payload:", data.payload);
+        router.push(`/game/${id}`);
         setGame(data.payload );
       }
 

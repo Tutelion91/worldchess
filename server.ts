@@ -57,6 +57,7 @@ wss.on("connection", (ws) => {
         started: false,
       };
       games[newGame.id] = newGame;
+      newGame.players.push(ws);
        console.log("[Server] Spiel erstellt:", newGame.id);
       // Broadcast an alle verbundenen Clients
       wss.clients.forEach((client) => {

@@ -13,6 +13,7 @@ export default function WaitingRoomPage() {
 useEffect(() => {
    console.log("[waiting-room] connect & join", id);
    connectSocket();
+   sendMessage({ type: "join", gameId: id });
      let gameCreated = false;
   onMessage((msg) => {
     if (msg.type === "game-created") {
