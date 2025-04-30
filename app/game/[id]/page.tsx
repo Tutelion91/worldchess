@@ -33,10 +33,12 @@ export default function GamePage() {
     //sendMessage({ type: "join", gameId: id });
     const offMsg = onMessage((data: any) => {
       console.log("[WS] received:", data);
+      console.log("[DEBUG GamePage] WS message:", msg);
 
       if (data.type === "start") {
         // payload enthält: id, player1, player2, stake, started
         console.log("Start event received with payload:", data.payload);
+        console.log("[DEBUG GamePage] ‹start›-Payload:", msg.payload, "Farbe:", msg.color);
         router.push(`/game/${id}`);
         //setGame(data.payload );
       }

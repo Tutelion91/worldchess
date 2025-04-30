@@ -17,7 +17,12 @@ const games: Record<
 
 // HTTP‑Server starten
 app.get("/games", (req: Request, res: Response) => {
-  // nur Spiele mit <2 Spielern zurückliefern
+  console.log(
+    "GET /games → Spieler pro Spiel:",
+    Object.values(games).map(g => ({
+      id: g.id,
+      playersCount: g.players.length
+    })));
   const openGames = Object.values(games).filter((g) => g.players.length < 2);
   res.json(openGames);
 });
