@@ -1,55 +1,33 @@
 "use client";
+import { useEffect, useRef } from "react";
+import { useRouter, useParams } from "next/navigation";
+import { connectToGame, onMessage } from "@/websocket";
 
-import { useEffect } from "react";
-import { useParams } from "next/navigation";
-import { useRouter } from "next/navigation";
-import { connectSocket, sendMessage, onMessage, connectToGame } from "@/websocket";
-
-export default function WaitingRoomPage() {
+export default function WaitingRoom() {
   const { id } = useParams();
   const router = useRouter();
+  const hasJoinedRef = useRef(false);
 
-  // Lösche das Spiel beim Verlassen der Seite
-useEffect(() => {
-   console.log("[waiting-room] connect & join", id);
-   connectSocket();
-   //sendMessage({ type: "join", gameId: id });
-   connectToGame(id);
-     let gameCreated = false;
-  onMessage((msg) => {
-    if (msg.type === "game-created") {
-      gameCreated = true;
-      //sendMessage({ type: "join", gameId: id });
+  useEffect(() => {
+    if (!hasJoinedRef.current) {
+      connectToGame(id);
+      hasJoinedRef.current = true;
     }
-    if (msg.type === "start") {
-      console.log("[waiting-room] Spiel startet!", msg.color);
-      router.push(`/game/${id}`);
-     }
-   });
-   
-  // Spiel löschen, wenn Seite verlassen wird
-  const handleBeforeUnload = () => {
-    const existing = JSON.parse(localStorage.getItem("waitingGames") || "[]");
-    const updated = existing.filter((g: any) => g.id !== id);
-    localStorage.setItem("waitingGames", JSON.stringify(updated));
-  };
 
-  window.addEventListener("beforeunload", handleBeforeUnload);
-
-
-  return () => {
-    handleBeforeUnload();
-    window.removeEventListener("beforeunload", handleBeforeUnload);
-  };
-}, [id]);
-
+    const off = onMessage((msg) => {
+      if (msg.type === "start") {
+        router.push(`/game/${id}`);
+      }
+      if (msg.type === "error") {
+        console.error("Join-Error:", msg.message);
+      }
+    });
+    return () => off();
+  }, [id, router]);
 
   return (
-    <div className="min-h-screen bg-blue-900 text-white flex flex-col items-center justify-center space-y-6">
-      <div className="w-16 h-16 border-4 border-blue-400 border-t-transparent rounded-full animate-spin"></div>
-      <h1 className="text-xl font-semibold text-center px-6">
-        Please wait until another player joins your game...
-      </h1>
+    <div className="min-h-screen bg-blue-900 text-white flex items-center justify-center">
+      <p>Warte auf Gegner…</p>
     </div>
   );
 }

@@ -1,63 +1,45 @@
 "use client";
-
 import { useEffect, useState } from "react";
-import { connectSocket, onMessage, requestWaitingGames } from "@/websocket";
+import { connectSocket, onMessage } from "@/websocket";
 
-type WaitingGame = {
-  id: string;
-  timeControl: string;
-  stake: number;
-};
+type WaitingGame = { id: string; timeControl: string; stake: number; };
 
 export default function WaitingGamesPage() {
   const [games, setGames] = useState<WaitingGame[]>([]);
 
   useEffect(() => {
-    // 1) Socket aufbauen
-    connectSocket();
+    // Initiale Liste via HTTP
+    fetch("http://localhost:3001/games")
+      .then(res => res.json())
+      .then((data: WaitingGame[]) => setGames(data))
+      .catch(console.error);
 
-    // 2) WS‑Handler registrieren
-    onMessage((msg) => {
-      if (msg.type === "waiting-games") {
-        setGames(msg.payload);
-      }
+    // WebSocket-Updates
+    connectSocket();
+    const off = onMessage((msg) => {
       if (msg.type === "new-game") {
-        setGames((prev) => [...prev, msg.payload]);
+        setGames(prev => [...prev, msg.payload]);
       }
       if (msg.type === "game-started") {
-        setGames((prev) => prev.filter((g) => g.id !== msg.gameId));
+        setGames(prev => prev.filter(g => g.id !== msg.gameId));
       }
     });
-
-    // 3) initiale Liste anfragen
-    requestWaitingGames();
+    return () => off();
   }, []);
 
-  const handleJoin = (game: WaitingGame) => {
-    window.location.href = `/waiting-room/${game.id}`;
-  };
+  const handleJoin = (g: WaitingGame) => window.location.href = `/waiting-room/${g.id}`;
 
   return (
-    <div className="min-h-screen bg-blue-900 text-white p-8">
-      <h1 className="text-2xl font-bold mb-6 text-center">Wartende Spiele</h1>
+    <div>
+      <h1>Wartende Spiele</h1>
       {games.length === 0 ? (
-        <p className="text-center text-gray-300">Keine Spiele verfügbar.</p>
+        <p>Keine Spiele verfügbar.</p>
       ) : (
-        <ul className="space-y-4 max-w-md mx-auto">
-          {games.map((g) => (
-            <li key={g.id} className="p-4 bg-gray-800 rounded shadow">
-              <div className="flex justify-between items-center">
-                <div>
-                  <p className="text-lg font-semibold">{g.timeControl}</p>
-                  <p className="text-sm text-gray-300">{g.stake} WLD</p>
-                </div>
-                <button
-                  className="px-4 py-2 bg-green-600 hover:bg-green-700 rounded text-white font-semibold"
-                  onClick={() => handleJoin(g)}
-                >
-                  Beitreten
-                </button>
-              </div>
+        <ul>
+          {games.map(g => (
+            <li key={g.id}>
+              <strong>{g.timeControl}</strong> – {g.stake} WLD
+              <button onClick={() => handleJoin(g)}>Beitreten</button>
             </li>
           ))}
         </ul>

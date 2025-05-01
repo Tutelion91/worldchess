@@ -1,37 +1,56 @@
-import express, { Request, Response } from "express";
+import express, { Request, Response, NextFunction } from "express";
 import cors from "cors";
 import { WebSocketServer, WebSocket } from "ws";
 
 const app = express();
-const HTTP_PORT = 3001; 
+const HTTP_PORT = 3001;
 const WS_PORT = 8080;
 
 app.use(cors());
 app.use(express.json());
 
-// In‑Memory Speicher für offene Spiele
-const games: Record<
-  string,
-  { id: string; players: WebSocket[]; timeControl: string; stake: number; started: boolean; }
-> = {};
+// In-Memory Speicher für offene Spiele
+interface Game {
+  id: string;
+  players: WebSocket[];
+  timeControl: string;
+  stake: number;
+  started: boolean;
+}
+const games: Record<string, Game> = {};
 
-// HTTP‑Server starten
-app.get("/games", (req: Request, res: Response) => {
+// HTTP-Endpoint: Liste offener Spiele (weniger als 2 Spieler)
+app.get("/games", (req: Request, res: Response, next: NextFunction) => {
   console.log(
     "GET /games → Spieler pro Spiel:",
-    Object.values(games).map(g => ({
-      id: g.id,
-      playersCount: g.players.length
-    })));
-  const openGames = Object.values(games).filter((g) => g.players.length < 2);
+    Object.values(games).map(g => ({ id: g.id, playersCount: g.players.length }))
+  );
+  const openGames = Object.values(games).filter(g => g.players.length < 2);
   res.json(openGames);
 });
 
+// HTTP-Endpoint: Einzelnes Spiel (auch gestartete)
+app.get("/games/:id", (req: Request, res: Response, next: NextFunction) => {
+  const game = games[req.params.id];
+  if (!game) {
+    res.status(404).json({ error: "Spiel nicht gefunden" });
+    return;
+  }
+  res.json({
+    id: game.id,
+    players: game.players.length,
+    timeControl: game.timeControl,
+    stake: game.stake,
+    started: game.started
+  });
+});
+
+// HTTP-Server starten
 app.listen(HTTP_PORT, () => {
   console.log(`HTTP Server läuft auf http://localhost:${HTTP_PORT}`);
 });
 
-// WebSocket‑Server auf eigenem Port
+// WebSocket-Server
 const wss = new WebSocketServer({ port: WS_PORT });
 console.log(`WebSocket Server läuft auf ws://localhost:${WS_PORT}`);
 
@@ -46,116 +65,87 @@ wss.on("connection", (ws) => {
       return console.error("Ungültiges JSON:", message);
     }
 
-    // 1) Initial‑Abfrage aller offenen Spiele
-    if (data.type === "get-waiting-games") {
-      const openGames = Object.values(games).filter((g) => g.players.length < 2);
-      ws.send(JSON.stringify({ type: "waiting-games", payload: openGames }));
-    }
-
-    // 2) Neues Spiel erstellt
+    // Neues Spiel anlegen
     if (data.type === "new-game") {
-      const newGame = {
-        id: data.payload.id,
-        players: [] as WebSocket[],
-        timeControl: data.payload.timeControl,
-        stake: data.payload.stake,
-        started: false,
-      };
-      games[newGame.id] = newGame;
-      newGame.players.push(ws);
-       console.log("[Server] Spiel erstellt:", newGame.id);
-      // Broadcast an alle verbundenen Clients
-      wss.clients.forEach((client) => {
-        if (client.readyState === WebSocket.OPEN) {
-          const openGames = Object.values(games).filter((g) => g.players.length < 2);
-      client.send(JSON.stringify({ type: "waiting-games", payload: openGames }));
+      const { id, timeControl, stake } = data.payload;
+      games[id] = { id, timeControl, stake, players: [ws], started: false };
+      ws.send(JSON.stringify({ type: "new-game-ack", gameId: id }));
+      // Notify waiting-games
+      wss.clients.forEach(client => {
+        if (client.readyState === WebSocket.OPEN && client !== ws) {
+          client.send(JSON.stringify({ type: "new-game", payload: { id, timeControl, stake } }));
         }
       });
-      ws.send(JSON.stringify({ type: "new-game-ack", gameId: newGame.id }));
     }
 
-    // 3) Join eines Spielers
+    // Spieler beitreten (sicherstellen, dass ein Client nur einmal hinzugefügt wird)
     if (data.type === "join") {
-      const gameId: string = data.gameId;
-      const game = games[gameId];
+      const game = games[data.gameId];
       if (!game) {
-        return ws.send(JSON.stringify({ type: "error", message: "Spiel existiert nicht" }));
+        ws.send(JSON.stringify({ type: "error", message: "Spiel nicht gefunden" }));
+        return;
       }
-      if (game.players.length >= 2) {
-        return ws.send(JSON.stringify({ type: "error", message: "Raum voll" }));
+      // Füge Client nur hinzu, wenn noch nicht enthalten
+      if (!game.players.includes(ws)) {
+        if (game.players.length >= 2) {
+          ws.send(JSON.stringify({ type: "error", message: "Raum voll" }));
+          return;
+        }
+        game.players.push(ws);
       }
-      if (game.players.includes(ws)) {
-    return ws.send(JSON.stringify({ type: "error", message: "Du bist bereits in diesem Raum" }));
-  }
-      game.players.push(ws);
-      console.log(`Spieler beigetreten: ${gameId}`);
-
-      // sobald 2 Spieler, Spiel starten und Warteliste bereinigen
-      if (game.players.length === 2) {
-      game.started = true;
-      const gameData = {
-    id:      game.id,
-    player1: "Player 1", 
-    player2: "Player 2", 
-    stake:   game.stake,
-    started: true};
-        // an beide Spieler Start-Nachricht senden
-        game.players.forEach((player, i) => {
+      // Starte Spiel erst, wenn genau 2 unterschiedliche Clients verbunden sind
+      if (!game.started && game.players.length === 2) {
+        game.started = true;
+        game.players.forEach((player, idx) => {
+          const color = idx === 0 ? "white" : "black";
           player.send(
-            JSON.stringify({ type: "start", payload: gameData, 
-        color: i === 0 ? "white" : "black" })
+            JSON.stringify({
+              type: "start",
+              payload: { id: game.id, timeControl: game.timeControl, stake: game.stake, started: true },
+              color
+            })
           );
         });
-        // Wartelisten‑Client informieren, dass Spiel wegfällt
+        // Broadcast an alle Sessions: Spiel gestartet
         wss.clients.forEach((client) => {
-          if (client.readyState === WebSocket.OPEN) {
-            client.send(JSON.stringify({ type: "game-started", gameId }));
+          if (client !== ws && client.readyState === WebSocket.OPEN) {
+            client.send(JSON.stringify({ type: "game-started", gameId: data.gameId }));
           }
         });
       }
     }
 
-    // 4) Züge weiterleiten
+    // Spielfiguren-Movement
     if (data.type === "move") {
-      const { gameId, move } = data;
-      const game = games[gameId];
+      const game = games[data.gameId];
       if (game) {
-        game.players.forEach((player) => {
+        game.players.forEach(player => {
           if (player !== ws && player.readyState === WebSocket.OPEN) {
-            player.send(JSON.stringify({ type: "move", move }));
+            player.send(JSON.stringify({ type: "move", payload: data.payload }));
           }
         });
       }
     }
+
   });
 
   ws.on("close", () => {
     console.log("WebSocket: Client getrennt");
-    // Alle Räume säubern
     for (const id in games) {
       const room = games[id];
-      room.players = room.players.filter((p) => p !== ws);
-      if (room.players.length === 0) {
-        console.log("Lösche fertig gespielten Raum", id);
-        delete games[id]}
-        else if (room.started) { // Benachrichtige verbleibende Spieler nur, wenn das Spiel gestartet wurde
-      room.players.forEach(player => {
-        player.send(JSON.stringify({ type: "game-aborted", message: "Gegner hat das Spiel verlassen" }))})}
+      room.players = room.players.filter(p => p !== ws);
+      // Nur ungestartete Räume sofort löschen
+      if (!room.started && room.players.length === 0) {
+        console.log("Lösche ungenutzten Raum", id);
+        delete games[id];
+      }
+      // Abbrechen bei Spielabbrüchen
+      else if (room.started && room.players.length > 0) {
+        room.players.forEach(player =>
+          player.send(JSON.stringify({ type: "game-aborted", message: "Gegner hat das Spiel verlassen" }))
+        );
+      }
     }
   });
-//  ws.on("message", (message) => {
-//  console.log("[Server] Nachricht reinkommend:", message.toString());
-//  const data = JSON.parse(message.toString());
-//  if (data.type === "get-waiting-games") {
-//    console.log("[Server] get-waiting-games erhalten");
-    // ...
-//  }
-//  if (data.type === "new-game") {
-//    console.log("[Server] new-game payload:", data.payload);
-    // ...
-//  }
-  // etc.
-//});
-
 });
 
