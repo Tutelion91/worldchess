@@ -4,7 +4,6 @@
   grid-template-rows: repeat(8, 100px);
   width: 800px;
   height: 800px;
-  background-color: blue;
 }
 
 .modal {
@@ -64,3 +63,12 @@
 .modal > .modal-body > .checkmate-body > button:hover {
   cursor: pointer;
 }
+#chessboard.rotate-board {
+  transform: rotate(180deg);
+}
+/* Rückgängig Rotation einzelner Tiles */
+#chessboard.rotate-board > * {
+  transform: rotate(180deg);
+}
+
+

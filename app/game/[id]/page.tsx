@@ -24,6 +24,7 @@ export default function GamePage() {
       if (msg.type === "start") {
         setGame(msg.payload);
         localStorage.setItem("worldchess-color", msg.color);
+        console.log(localStorage.getItem("worldchess-color"));
       }
       if (msg.type === "error") {
         setError(msg.message);
