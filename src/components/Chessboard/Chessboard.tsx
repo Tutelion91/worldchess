@@ -7,16 +7,17 @@ import { Piece, Position } from "../../models";
 interface Props {
   playMove: (piece: Piece, position: Position) => boolean;
   pieces: Piece[];
+  playerColor: 'white' | 'black';
 }
 
-export default function Chessboard({ playMove, pieces }: Props) {
+export default function Chessboard({ playMove, pieces ,playerColor }: Props) {
   const [activePiece, setActivePiece] = useState<HTMLElement | null>(null);
   const [grabPosition, setGrabPosition] = useState<Position>(new Position(-1, -1));
   const chessboardRef = useRef<HTMLDivElement>(null);
 
   // Spielerfarbe direkt aus localStorage (wird beim Start-Event gesetzt)
-  const playerColor =
-    (localStorage.getItem("worldchess-color") as "white" | "black") || "white";
+  //const playerColor =
+  //  (localStorage.getItem("worldchess-color") as "white" | "black") || "white";
 console.log("Chessboard – playerColor:", playerColor);
 
   function grabPiece(e: React.MouseEvent) {

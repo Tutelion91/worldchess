@@ -1,0 +1,858 @@
+// ================================
+// File: ./src/App.tsx
+// ================================
+
+import './App.css';
+import Referee from './components/Referee/Referee';
+
+interface AppProps {
+  initialGame: {
+    id: string;
+    timeControl: string;
+    stake: number;
+    started: boolean;
+  };
+  playerColor: 'white' | 'black';
+}
+
+
+
+export default function App({ initialGame, playerColor }: AppProps) {
+  return (
+    <div id="app">
+      {/* Pass both game data and playerColor to your Referee */}
+      <Referee initialGame={initialGame} playerColor={playerColor} />
+    </div>
+  );
+}
+
+
+// ================================
+// File: ./src/App.css
+// ================================
+
+#app {
+    display: grid;
+    place-content: center;
+    height: 100vh;
+    background-color: #202020;
+}
+
+// ================================
+// File: ./src/app/page.tsx
+// ================================
+
+import Image from "next/image";
+
+export default function Home() {
+  return (
+    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
+      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
+        <Image
+          className="dark:invert"
+          src="/next.svg"
+          alt="Next.js logo"
+          width={180}
+          height={38}
+          priority
+        />
+        <ol className="list-inside list-decimal text-sm/6 text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
+          <li className="mb-2 tracking-[-.01em]">
+            Get started by editing{" "}
+            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-[family-name:var(--font-geist-mono)] font-semibold">
+              src/app/page.tsx
+            </code>
+            .
+          </li>
+          <li className="tracking-[-.01em]">
+            Save and see your changes instantly.
+          </li>
+        </ol>
+
+        <div className="flex gap-4 items-center flex-col sm:flex-row">
+          <a
+            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
+            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <Image
+              className="dark:invert"
+              src="/vercel.svg"
+              alt="Vercel logomark"
+              width={20}
+              height={20}
+            />
+            Deploy now
+          </a>
+          <a
+            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
+            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Read our docs
+          </a>
+        </div>
+      </main>
+      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
+        <a
+          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
+          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <Image
+            aria-hidden
+            src="/file.svg"
+            alt="File icon"
+            width={16}
+            height={16}
+          />
+          Learn
+        </a>
+        <a
+          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
+          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <Image
+            aria-hidden
+            src="/window.svg"
+            alt="Window icon"
+            width={16}
+            height={16}
+          />
+          Examples
+        </a>
+        <a
+          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
+          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <Image
+            aria-hidden
+            src="/globe.svg"
+            alt="Globe icon"
+            width={16}
+            height={16}
+          />
+          Go to nextjs.org →
+        </a>
+      </footer>
+    </div>
+  );
+}
+
+
+// ================================
+// File: ./src/app/chess/page.tsx
+// ================================
+
+// worldchess/app/chess/page.tsx
+'use client';
+
+import { Game } from '@/components/Game';
+
+export default function ChessPage() {
+  return (
+    <main className="p-4">
+      <h1 className="text-2xl font-bold mb-4">Schach</h1>
+      <Game />
+    </main>
+  );
+}
+
+
+// ================================
+// File: ./src/components/Chessboard/Chessboard.tsx
+// ================================
+
+import { useRef, useState, useEffect } from "react";
+import "./Chessboard.css";
+import Tile from "../Tile/Tile";
+import { VERTICAL_AXIS, HORIZONTAL_AXIS, GRID_SIZE } from "../../Constants";
+import { Piece, Position } from "../../models";
+
+interface Props {
+  playMove: (piece: Piece, position: Position) => boolean;
+  pieces: Piece[];
+  playerColor: 'white' | 'black';
+}
+
+export default function Chessboard({ playMove, pieces ,playerColor }: Props) {
+  const [activePiece, setActivePiece] = useState<HTMLElement | null>(null);
+  const [grabPosition, setGrabPosition] = useState<Position>(new Position(-1, -1));
+  const chessboardRef = useRef<HTMLDivElement>(null);
+
+  // Spielerfarbe direkt aus localStorage (wird beim Start-Event gesetzt)
+  //const playerColor =
+  //  (localStorage.getItem("worldchess-color") as "white" | "black") || "white";
+console.log("Chessboard – playerColor:", playerColor);
+
+  function grabPiece(e: React.MouseEvent) {
+    const element = e.target as HTMLElement;
+    const board = chessboardRef.current;
+    if (element.classList.contains("chess-piece") && board) {
+      const x = Math.floor((e.clientX - board.offsetLeft) / GRID_SIZE);
+      const y = Math.abs(
+        Math.ceil((e.clientY - board.offsetTop - GRID_SIZE * 8) / GRID_SIZE)
+      );
+      setGrabPosition(new Position(x, y));
+      element.style.position = "absolute";
+      element.style.pointerEvents = "none";
+      setActivePiece(element);
+    }
+  }
+
+  function movePiece(e: React.MouseEvent) {
+    if (!activePiece || !chessboardRef.current) return;
+    const board = chessboardRef.current;
+    const x = e.clientX - GRID_SIZE / 2;
+    const y = e.clientY - GRID_SIZE / 2;
+    activePiece.style.left = `${Math.min(
+      Math.max(x, board.offsetLeft),
+      board.offsetLeft + board.clientWidth - GRID_SIZE
+    )}px`;
+    activePiece.style.top = `${Math.min(
+      Math.max(y, board.offsetTop),
+      board.offsetTop + board.clientHeight - GRID_SIZE
+    )}px`;
+  }
+
+  function dropPiece(e: React.MouseEvent) {
+    const board = chessboardRef.current;
+    if (!activePiece || !board) return;
+    const x = Math.floor((e.clientX - board.offsetLeft) / GRID_SIZE);
+    const y = Math.abs(
+      Math.ceil((e.clientY - board.offsetTop - GRID_SIZE * 8) / GRID_SIZE)
+    );
+
+    const piece = pieces.find((p) => p.samePosition(grabPosition));
+    if (piece) {
+      const success = playMove(piece.clone(), new Position(x, y));
+      if (!success) {
+        activePiece.style.position = "relative";
+        activePiece.style.removeProperty("top");
+        activePiece.style.removeProperty("left");
+      }
+    }
+    setActivePiece(null);
+  }
+
+  const boardTiles: JSX.Element[] = [];
+  for (let row = 0; row < 8; row++) {
+    for (let col = 0; col < 8; col++) {
+      const j = playerColor === "white" ? 7 - row : row;
+      const i = playerColor === "white" ? col : 7 - col;
+      const number = j + i + 2;
+      const piece = pieces.find((p) => p.samePosition(new Position(i, j)));
+      const image = piece?.image;
+
+      const currentPiece =
+        activePiece != null ? pieces.find((p) => p.samePosition(grabPosition)) : undefined;
+      const highlight = currentPiece?.possibleMoves
+        ? currentPiece.possibleMoves.some((p) => p.samePosition(new Position(i, j)))
+        : false;
+
+      boardTiles.push(
+        <Tile
+          key={`${row},${col}`}
+          image={image}
+          number={number}
+          highlight={highlight}
+        />
+      );
+    }
+  }
+
+  return (
+    <div
+      id="chessboard"
+      ref={chessboardRef}
+      className={playerColor === "black" ? "rotate-board" : ""}
+      onMouseMove={movePiece}
+      onMouseDown={grabPiece}
+      onMouseUp={dropPiece}
+    >
+      {boardTiles}
+    </div>
+  );
+
+}
+
+
+
+// ================================
+// File: ./src/components/Referee/Referee.tsx
+// ================================
+
+import { useEffect, useRef, useState } from "react";
+import { initialBoard } from "../../Constants";
+import { Piece, Position } from "../../models";
+import { Board } from "../../models/Board";
+import { Pawn } from "../../models/Pawn";
+import {
+  bishopMove,
+  getPossibleBishopMoves,
+  getPossibleKingMoves,
+  getPossibleKnightMoves,
+  getPossiblePawnMoves,
+  getPossibleQueenMoves,
+  getPossibleRookMoves,
+  kingMove,
+  knightMove,
+  pawnMove,
+  queenMove,
+  rookMove,
+} from "../../referee/rules";
+import { PieceType, TeamType } from "../../Types";
+import Chessboard from "../Chessboard/Chessboard";
+import { Howl } from "howler";
+import { sendMove, onMove } from "@/websocket";
+
+
+interface RefereeProps {
+  initialGame: {
+    id: string;
+    timeControl: string;
+    stake: number;
+    started: boolean;
+  };
+  playerColor: 'white' | 'black';
+}
+
+const moveSound = new Howl({
+  src: ["/sounds/move-self.mp3"],
+});
+
+const captureSound = new Howl({
+  src: ["/sounds/capture.mp3"],
+});
+
+const checkmateSound = new Howl({
+  src: ["/sounds/move-check.mp3"],
+});
+
+export default function Referee({ initialGame, playerColor }: RefereeProps) {
+  const [board, setBoard] = useState<Board>(initialBoard.clone());
+  const [promotionPawn, setPromotionPawn] = useState<Piece>();
+  const modalRef = useRef<HTMLDivElement>(null);
+  const stalemateModalRef = useRef<HTMLDivElement>(null);
+  const checkmateModalRef = useRef<HTMLDivElement>(null);
+
+useEffect(() => {
+  const unsubscribe = onMove((move: { from: { x: number; y: number }; to: { x: number; y: number } }) => {
+    setBoard((currentBoard) => {
+      const clonedBoard = currentBoard.clone();
+
+      const piece = clonedBoard.pieces.find((p) =>
+        p.position.x === move.from.x && p.position.y === move.from.y
+      );
+
+      if (piece) {
+        clonedBoard.playMove(
+          false, // Kein En Passant nötig
+          true,  // Wir vertrauen darauf, dass der Zug korrekt ist
+          piece,
+          new Position(move.to.x, move.to.y)
+        );
+        clonedBoard.totalTurns += 1;
+      }
+
+      return clonedBoard;
+    });
+  });
+
+  return () => {
+    unsubscribe();
+  };
+}, []);
+
+
+  function playMove(playedPiece: Piece, destination: Position): boolean {
+    // If the playing piece doesn't have any moves return
+    if (playedPiece.possibleMoves === undefined) return false;
+
+    // Prevent the inactive team from playing
+    if (playedPiece.team === TeamType.OUR && board.totalTurns % 2 !== 1)
+      return false;
+    if (playedPiece.team === TeamType.OPPONENT && board.totalTurns % 2 !== 0)
+      return false;
+
+    let playedMoveIsValid = false;
+
+    const validMove = playedPiece.possibleMoves?.some((m) =>
+      m.samePosition(destination)
+    );
+
+    if (!validMove) return false;
+
+    const enPassantMove = isEnPassantMove(
+      playedPiece.position,
+      destination,
+      playedPiece.type,
+      playedPiece.team
+    );
+
+    // playMove modifies the board thus we
+    // need to call setBoard
+setBoard(() => {
+  const clonedBoard = board.clone();
+
+  const moveWasPlayed = clonedBoard.playMove(
+    enPassantMove,
+    validMove,
+    playedPiece,
+    destination
+  );
+
+  if (moveWasPlayed) {
+    moveSound.play();
+    clonedBoard.totalTurns += 1;
+
+    const nextTeam = playedPiece.team === TeamType.OUR ? TeamType.OPPONENT : TeamType.OUR;
+    clonedBoard.calculateAllMoves();
+
+    if (isStalemate(clonedBoard, nextTeam)) {
+      stalemateModalRef.current?.classList.remove("hidden");
+      return clonedBoard;
+    }
+
+    if (clonedBoard.winningTeam !== undefined) {
+      checkmateModalRef.current?.classList.remove("hidden");
+      checkmateSound.play();
+    }
+  }
+
+  return clonedBoard;
+});
+
+sendMove({
+  from: { x: playedPiece.position.x, y: playedPiece.position.y },
+  to: { x: destination.x, y: destination.y },
+});
+
+
+    // This is for promoting a pawn
+    let promotionRow = playedPiece.team === TeamType.OUR ? 7 : 0;
+
+    if (destination.y === promotionRow && playedPiece.isPawn) {
+      modalRef.current?.classList.remove("hidden");
+      setPromotionPawn((previousPromotionPawn) => {
+        const clonedPlayedPiece = playedPiece.clone();
+        clonedPlayedPiece.position = destination.clone();
+        return clonedPlayedPiece;
+      });
+    }
+
+    return playedMoveIsValid;
+  }
+
+  function isEnPassantMove(
+    initialPosition: Position,
+    desiredPosition: Position,
+    type: PieceType,
+    team: TeamType
+  ) {
+    const pawnDirection = team === TeamType.OUR ? 1 : -1;
+
+    if (type === PieceType.PAWN) {
+      if (
+        (desiredPosition.x - initialPosition.x === -1 ||
+          desiredPosition.x - initialPosition.x === 1) &&
+        desiredPosition.y - initialPosition.y === pawnDirection
+      ) {
+        const piece = board.pieces.find(
+          (p) =>
+            p.position.x === desiredPosition.x &&
+            p.position.y === desiredPosition.y - pawnDirection &&
+            p.isPawn &&
+            (p as Pawn).enPassant
+        );
+        if (piece) {
+          return true;
+        }
+      }
+    }
+
+    return false;
+  }
+
+function isStalemate(board: Board, team: TeamType): boolean {
+  const teamPieces = board.pieces.filter(p => p.team === team);
+
+  for (let piece of teamPieces) {
+    if (piece.possibleMoves && piece.possibleMoves.length > 0) {
+      return false;
+    }
+  }
+
+  // Alle Figuren haben 0 Züge → prüfen ob König im Schach steht
+  const king = teamPieces.find(p => p.type === PieceType.KING);
+  if (!king) return false;
+
+  const enemyMoves = board.pieces
+    .filter(p => p.team !== team && p.possibleMoves)
+    .flatMap(p => p.possibleMoves!);
+
+  const inCheck = enemyMoves.some(move =>
+    move.samePosition(king.position)
+  );
+
+  return !inCheck;
+}
+
+
+  function isValidMove(
+    initialPosition: Position,
+    desiredPosition: Position,
+    type: PieceType,
+    team: TeamType
+  ) {
+    let validMove = false;
+    switch (type) {
+      case PieceType.PAWN:
+        validMove = pawnMove(
+          initialPosition,
+          desiredPosition,
+          team,
+          board.pieces
+        );
+        break;
+      case PieceType.KNIGHT:
+        validMove = knightMove(
+          initialPosition,
+          desiredPosition,
+          team,
+          board.pieces
+        );
+        break;
+      case PieceType.BISHOP:
+        validMove = bishopMove(
+          initialPosition,
+          desiredPosition,
+          team,
+          board.pieces
+        );
+        break;
+      case PieceType.ROOK:
+        validMove = rookMove(
+          initialPosition,
+          desiredPosition,
+          team,
+          board.pieces
+        );
+        break;
+      case PieceType.QUEEN:
+        validMove = queenMove(
+          initialPosition,
+          desiredPosition,
+          team,
+          board.pieces
+        );
+        break;
+      case PieceType.KING:
+        validMove = kingMove(
+          initialPosition,
+          desiredPosition,
+          team,
+          board.pieces
+        );
+    }
+
+    return validMove;
+  }
+
+  function promotePawn(pieceType: PieceType) {
+    if (promotionPawn === undefined) {
+      return;
+    }
+
+    setBoard((previousBoard) => {
+      const clonedBoard = board.clone();
+      clonedBoard.pieces = clonedBoard.pieces.reduce((results, piece) => {
+        if (piece.samePiecePosition(promotionPawn)) {
+          results.push(
+            new Piece(piece.position.clone(), pieceType, piece.team, true)
+          );
+        } else {
+          results.push(piece);
+        }
+        return results;
+      }, [] as Piece[]);
+
+      clonedBoard.calculateAllMoves();
+
+      return clonedBoard;
+    });
+
+    modalRef.current?.classList.add("hidden");
+  }
+
+  function promotionTeamType() {
+    return promotionPawn?.team === TeamType.OUR ? "w" : "b";
+  }
+
+  function restartGame() {
+    checkmateModalRef.current?.classList.add("hidden");
+    setBoard(initialBoard.clone());
+  }
+
+  return (
+    <>
+      <p style={{ color: "white", fontSize: "24px", textAlign: "center" }}>
+        Total turns: {board.totalTurns}
+      </p>
+      <div className="modal hidden" ref={modalRef}>
+        <div className="modal-body">
+          <img
+            onClick={() => promotePawn(PieceType.ROOK)}
+            src={`/assets/images/rook_${promotionTeamType()}.png`}
+          />
+          <img
+            onClick={() => promotePawn(PieceType.BISHOP)}
+            src={`/assets/images/bishop_${promotionTeamType()}.png`}
+          />
+          <img
+            onClick={() => promotePawn(PieceType.KNIGHT)}
+            src={`/assets/images/knight_${promotionTeamType()}.png`}
+          />
+          <img
+            onClick={() => promotePawn(PieceType.QUEEN)}
+            src={`/assets/images/queen_${promotionTeamType()}.png`}
+          />
+        </div>
+      </div>
+      <div className="modal hidden" ref={checkmateModalRef}>
+        <div className="modal-body">
+          <div className="checkmate-body">
+            <span>
+              The winning team is{" "}
+              {board.winningTeam === TeamType.OUR ? "white" : "black"}!
+            </span>
+            <button onClick={restartGame}>Play again</button>
+          </div>
+        </div>
+      </div>
+      <div className="modal hidden" ref={stalemateModalRef}>
+  <div className="modal-body">
+    <div className="checkmate-body">
+      <span>Stalemate! Das Spiel endet unentschieden.</span>
+      <button onClick={restartGame}>Play again</button>
+    </div>
+  </div>
+</div>
+
+      <Chessboard playMove={playMove} pieces={board.pieces} playerColor={playerColor} />
+    </>
+  );
+}
+
+
+// ================================
+// File: ./app/page.tsx
+// ================================
+
+import Link from "next/link";
+
+export default function Page() {
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center bg-blue-900 text-white space-y-10">
+      {/* Rotierende Weltkugel */}
+      <div
+        className="w-48 h-48 rounded-full bg-cover bg-center shadow-inner"
+        style={{
+          backgroundImage: "url('/world-map.jpg')",
+        }}
+      ></div>
+
+      {/* Buttons */}
+      <div className="flex flex-col items-center space-y-4">
+        <Link
+          href="/faq"
+          className="block w-64 bg-blue-600 hover:bg-blue-700 text-white text-lg font-semibold py-3 px-6 rounded-lg text-center shadow-md hover:shadow-lg border border-blue-400"
+        >
+          FAQ
+        </Link>
+        <Link
+          href="/create-game"
+          className="block w-64 bg-blue-600 hover:bg-blue-700 text-white text-lg font-semibold py-3 px-6 rounded-lg text-center shadow-md hover:shadow-lg border border-blue-400"
+        >
+          Spiel erstellen
+        </Link>
+        <Link
+          href="/waiting-games"
+          className="block w-64 bg-blue-600 hover:bg-blue-700 text-white text-lg font-semibold py-3 px-6 rounded-lg text-center shadow-md hover:shadow-lg border border-blue-400"
+        >
+          Wartende Spiele
+        </Link>
+        <Link
+        href="/singleplayer"
+        className="block w-64 bg-green-600 hover:bg-green-700 text-white text-lg font-semibold py-3 px-6 rounded-lg text-center"
+      >
+        Einzelspiel starten
+      </Link>
+      </div>
+    </div>
+  );
+}
+
+
+
+// ================================
+// File: ./app/chess/page.tsx
+// ================================
+
+"use client";
+
+import dynamic from "next/dynamic";
+
+const ChessGame = dynamic(() => import("@/App"), { ssr: false });
+
+
+export default function Page() {
+  return (
+    <main className="flex min-h-screen flex-col items-center justify-center p-4">
+      <ChessGame />
+    </main>
+  );
+}
+// app/page.tsx
+import React from "react";
+
+export default function Page() {
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-b from-gray-900 via-gray-800 to-black text-white">
+      {/* Rotierende Weltkugel */}
+      <div
+        className="rounded-full bg-cover shadow-inner w-64 h-64 md:w-80 md:h-80"
+        style={{
+          backgroundImage: "url('/world-map.jpg')",
+          animation: "spinEarth 20s linear infinite"
+        }}
+      />
+      {/* Button-Gruppe */}
+      <div className="mt-8 w-4/5 max-w-md flex flex-col space-y-4">
+        <button className="w-full bg-gray-800 hover:bg-gray-700 text-white font-semibold py-3 px-4 rounded-lg">
+          FAQ
+        </button>
+        <button className="w-full bg-gray-800 hover:bg-gray-700 text-white font-semibold py-3 px-4 rounded-lg">
+          Spiel erstellen
+        </button>
+        <button className="w-full bg-gray-800 hover:bg-gray-700 text-white font-semibold py-3 px-4 rounded-lg">
+          Wartende Spiele
+        </button>
+      </div>
+
+      {/* Globale CSS für Keyframe-Animation */}
+      <style jsx global>{`
+        @keyframes spinEarth {
+          from { background-position: 0% 0; }
+          to   { background-position: 100% 0; }
+        }
+      `}</style>
+    </div>
+  );
+}
+
+
+// ================================
+// File: ./app/game/[id]/page.tsx
+// ================================
+
+"use client";
+import { useEffect, useState } from "react";
+import { useParams } from "next/navigation";
+import { connectSocket, onMessage } from "@/websocket";
+import App from "../../../src/App";
+
+interface Game {
+  id: string;
+  timeControl: string;
+  stake: number;
+  started: boolean;
+}
+
+export default function GamePage() {
+  const { id } = useParams();
+  const [game, setGame] = useState<{ id: string; timeControl: string; stake: number; started: boolean; } | null>(null);
+  const [playerColor, setPlayerColor] = useState<"white" | "black" | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    connectSocket();
+    // HTTP-Fallback
+    fetch(`http://localhost:3001/games/${id}`)
+      .then(res => {
+        if (!res.ok) throw new Error("Spiel nicht gefunden");
+        return res.json();
+      })
+      .then(data => setGame(data))
+      .catch(() => {});
+
+    const off = onMessage((msg) => {
+      if (msg.type === "start") {
+        setGame(msg.payload);
+        setPlayerColor(msg.color);
+        localStorage.setItem("worldchess-color", msg.color);
+        console.log(localStorage.getItem("worldchess-color"));
+      }
+      if (msg.type === "error") {
+        setError(msg.message);
+      }
+    });
+    return () => off();
+  }, [id]);
+
+  if (error) return <p>Fehler: {error}</p>;
+  if (!game) return <p>Spiel wird geladen…</p>;
+  if (!game.started) return <p>Warte auf Gegner…</p>;
+
+  return <App initialGame={game} playerColor={playerColor} />;
+}
+
+
+
+// ================================
+// File: ./app/waiting-room/[id]/page.tsx
+// ================================
+
+"use client";
+import { useEffect, useRef } from "react";
+import { useRouter, useParams } from "next/navigation";
+import { connectToGame, onMessage } from "@/websocket";
+
+export default function WaitingRoom() {
+  const { id } = useParams();
+  const router = useRouter();
+  const hasJoinedRef = useRef(false);
+
+  useEffect(() => {
+    if (!hasJoinedRef.current) {
+      connectToGame(id);
+      hasJoinedRef.current = true;
+    }
+
+    const off = onMessage((msg) => {
+      if (msg.type === "start") {
+        router.push(`/game/${id}`);
+      }
+      if (msg.type === "error") {
+        console.error("Join-Error:", msg.message);
+      }
+    });
+    return () => off();
+  }, [id, router]);
+
+  return (
+    <div className="min-h-screen bg-blue-900 text-white flex items-center justify-center">
+      <p>Warte auf Gegner…</p>
+    </div>
+  );
+}
+
+
+

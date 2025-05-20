@@ -4,9 +4,17 @@ import { useParams } from "next/navigation";
 import { connectSocket, onMessage } from "@/websocket";
 import App from "../../../src/App";
 
+interface Game {
+  id: string;
+  timeControl: string;
+  stake: number;
+  started: boolean;
+}
+
 export default function GamePage() {
   const { id } = useParams();
   const [game, setGame] = useState<{ id: string; timeControl: string; stake: number; started: boolean; } | null>(null);
+  const [playerColor, setPlayerColor] = useState<"white" | "black" | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -23,6 +31,7 @@ export default function GamePage() {
     const off = onMessage((msg) => {
       if (msg.type === "start") {
         setGame(msg.payload);
+        setPlayerColor(msg.color);
         localStorage.setItem("worldchess-color", msg.color);
         console.log(localStorage.getItem("worldchess-color"));
       }
@@ -37,6 +46,6 @@ export default function GamePage() {
   if (!game) return <p>Spiel wird geladen…</p>;
   if (!game.started) return <p>Warte auf Gegner…</p>;
 
-  return <App initialGame={game} />;
+  return <App initialGame={game} playerColor={playerColor} />;
 }
 

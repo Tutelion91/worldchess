@@ -1,0 +1,10 @@
+./src/App.tsx
+./src/App.css
+./src/app/page.tsx
+./src/app/chess/page.tsx
+./src/components/Chessboard/Chessboard.tsx
+./src/components/Referee/Referee.tsx
+./app/page.tsx
+./app/chess/page.tsx
+./app/game/[id]/page.tsx
+./app/waiting-room/[id]/page.tsx

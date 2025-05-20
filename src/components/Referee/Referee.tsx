@@ -23,6 +23,16 @@ import { Howl } from "howler";
 import { sendMove, onMove } from "@/websocket";
 
 
+interface RefereeProps {
+  initialGame: {
+    id: string;
+    timeControl: string;
+    stake: number;
+    started: boolean;
+  };
+  playerColor: 'white' | 'black';
+}
+
 const moveSound = new Howl({
   src: ["/sounds/move-self.mp3"],
 });
@@ -35,7 +45,7 @@ const checkmateSound = new Howl({
   src: ["/sounds/move-check.mp3"],
 });
 
-export default function Referee() {
+export default function Referee({ initialGame, playerColor }: RefereeProps) {
   const [board, setBoard] = useState<Board>(initialBoard.clone());
   const [promotionPawn, setPromotionPawn] = useState<Piece>();
   const modalRef = useRef<HTMLDivElement>(null);
@@ -205,8 +215,6 @@ function isStalemate(board: Board, team: TeamType): boolean {
 }
 
 
-  //TODO
-  //Add stalemate!
   function isValidMove(
     initialPosition: Position,
     desiredPosition: Position,
@@ -347,7 +355,7 @@ function isStalemate(board: Board, team: TeamType): boolean {
   </div>
 </div>
 
-      <Chessboard playMove={playMove} pieces={board.pieces} />
+      <Chessboard playMove={playMove} pieces={board.pieces} playerColor={playerColor} />
     </>
   );
 }
