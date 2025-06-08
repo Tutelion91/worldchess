@@ -51,7 +51,7 @@ export default function GamePage() {
 
   if (error) return <p>Fehler: {error}</p>;
   if (!game) return <p>Spiel wird geladen…</p>;
-  if (!game.started) return <p>Warte auf Gegner…</p>;
+  if (!game.started || !playerColor) return <p>Warte auf Gegner…</p>;
 
   return <App initialGame={game} playerColor={playerColor} />;
 }
