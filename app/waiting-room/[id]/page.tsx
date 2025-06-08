@@ -16,6 +16,9 @@ export default function WaitingRoom() {
 
     const off = onMessage((msg) => {
       if (msg.type === "start") {
+        if (msg.color) {
+          localStorage.setItem("worldchess-color", msg.color);
+        }
         router.push(`/game/${id}`);
       }
       if (msg.type === "error") {

@@ -18,6 +18,13 @@ export default function GamePage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    const stored = localStorage.getItem("worldchess-color");
+    if (stored === "white" || stored === "black") {
+      setPlayerColor(stored);
+    }
+  }, []);
+
+  useEffect(() => {
     connectSocket();
     // HTTP-Fallback
     fetch(`http://localhost:3001/games/${id}`)
