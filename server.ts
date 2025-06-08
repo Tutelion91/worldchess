@@ -96,8 +96,10 @@ wss.on("connection", (ws) => {
       // Starte Spiel erst, wenn genau 2 unterschiedliche Clients verbunden sind
       if (!game.started && game.players.length === 2) {
         game.started = true;
+        const colors = ["white", "black"];
+        colors.sort(() => Math.random() - 0.5);
         game.players.forEach((player, idx) => {
-          const color = idx === 0 ? "white" : "black";
+          const color = colors[idx];
           player.send(
             JSON.stringify({
               type: "start",
