@@ -100,7 +100,6 @@ console.log("Chessboard – playerColor:", playerColor);
     <div
       id="chessboard"
       ref={chessboardRef}
-      className={playerColor === "black" ? "rotate-board" : ""}
       onMouseMove={movePiece}
       onMouseDown={grabPiece}
       onMouseUp={dropPiece}
