@@ -31,12 +31,6 @@ export default function Page() {
         >
           Wartende Spiele
         </Link>
-        <Link
-        href="/singleplayer"
-        className="block w-64 bg-green-600 hover:bg-green-700 text-white text-lg font-semibold py-3 px-6 rounded-lg text-center"
-      >
-        Einzelspiel starten
-      </Link>
       </div>
     </div>
   );

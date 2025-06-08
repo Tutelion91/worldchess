@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { connectSocket, sendMessage, onMessage } from "@/websocket";
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 
 export default function CreateGamePage() {
   const [timeControl, setTimeControl] = useState("15+10");
@@ -95,6 +96,12 @@ export default function CreateGamePage() {
       >
         Spiel erstellen
       </button>
+      <Link
+        href="/"
+        className="px-6 py-3 bg-blue-600 hover:bg-blue-700 rounded text-white font-semibold"
+      >
+        Zurück
+      </Link>
     </div>
   );
 }
