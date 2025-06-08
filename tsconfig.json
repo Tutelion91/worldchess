@@ -27,7 +27,7 @@
     "node_modules",
     "**/*_backup.tsx",
     "src/index.tsx",
-    "src/app/**"
+    "src/app/**",
     "**/*_backup.css"
   ]
 }
