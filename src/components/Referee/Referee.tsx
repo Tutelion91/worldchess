@@ -119,6 +119,7 @@ setBoard(() => {
   );
 
   if (moveWasPlayed) {
+    playedMoveIsValid = true;
     moveSound.play();
     clonedBoard.totalTurns += 1;
 
