@@ -4,7 +4,8 @@ import { useRouter, useParams } from "next/navigation";
 import { connectToGame, onMessage } from "@/websocket";
 
 export default function WaitingRoom() {
-  const { id } = useParams();
+  const params = useParams();
+  const id = params.id as string;
   const router = useRouter();
   const hasJoinedRef = useRef(false);
 

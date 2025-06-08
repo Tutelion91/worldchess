@@ -31,7 +31,7 @@ export function onMessage(callback: (data: any) => void): () => void {
     callback(data);
   };
   socket.addEventListener("message", handler);
-  return () => socket.removeEventListener("message", handler);
+  return () => socket?.removeEventListener("message", handler);
 }
 
 export function connectToGame(gameId: string) {

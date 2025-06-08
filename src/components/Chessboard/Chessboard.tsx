@@ -1,4 +1,5 @@
 import { useRef, useState, useEffect } from "react";
+import type React from "react";
 import "./Chessboard.css";
 import Tile from "../Tile/Tile";
 import { VERTICAL_AXIS, HORIZONTAL_AXIS, GRID_SIZE } from "../../Constants";
@@ -70,7 +71,7 @@ console.log("Chessboard – playerColor:", playerColor);
     setActivePiece(null);
   }
 
-  const boardTiles: JSX.Element[] = [];
+  const boardTiles: React.ReactElement[] = [];
   for (let row = 0; row < 8; row++) {
     for (let col = 0; col < 8; col++) {
       const j = playerColor === "white" ? 7 - row : row;
