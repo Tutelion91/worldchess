@@ -28,5 +28,6 @@
     "**/*_backup.tsx",
     "src/index.tsx",
     "src/app/**"
+    "**/*_backup.css"
   ]
 }
