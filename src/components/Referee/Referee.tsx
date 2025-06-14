@@ -51,6 +51,7 @@ export default function Referee({ initialGame, playerColor }: RefereeProps) {
   const modalRef = useRef<HTMLDivElement>(null);
   const stalemateModalRef = useRef<HTMLDivElement>(null);
   const checkmateModalRef = useRef<HTMLDivElement>(null);
+  const myTeam: TeamType = playerColor === "white" ? TeamType.OUR : TeamType.OPPONENT;
 
 useEffect(() => {
   const unsubscribe = onMove((move: { from: { x: number; y: number }; to: { x: number; y: number } }) => {
@@ -84,6 +85,9 @@ useEffect(() => {
   function playMove(playedPiece: Piece, destination: Position): boolean {
     // If the playing piece doesn't have any moves return
     if (playedPiece.possibleMoves === undefined) return false;
+
+    // Only allow moving our own pieces
+    if (playedPiece.team !== myTeam) return false;
 
     // Prevent the inactive team from playing
     if (playedPiece.team === TeamType.OUR && board.totalTurns % 2 !== 1)
