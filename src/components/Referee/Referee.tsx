@@ -70,6 +70,9 @@ useEffect(() => {
           new Position(move.to.x, move.to.y)
         );
         clonedBoard.totalTurns += 1;
+        // Recalculate possible moves for the new board state so the next
+        // player can see their available moves
+        clonedBoard.calculateAllMoves();
       }
 
       return clonedBoard;
