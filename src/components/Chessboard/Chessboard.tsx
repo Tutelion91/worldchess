@@ -4,6 +4,7 @@ import "./Chessboard.css";
 import Tile from "../Tile/Tile";
 import { VERTICAL_AXIS, HORIZONTAL_AXIS, GRID_SIZE } from "../../Constants";
 import { Piece, Position } from "../../models";
+import { TeamType } from "../../Types";
 
 interface Props {
   playMove: (piece: Piece, position: Position) => boolean;
@@ -21,19 +22,43 @@ export default function Chessboard({ playMove, pieces ,playerColor }: Props) {
   //  (localStorage.getItem("worldchess-color") as "white" | "black") || "white";
 console.log("Chessboard – playerColor:", playerColor);
 
+  // Convert mouse coordinates to board coordinates depending on orientation
+  function getBoardPosition(clientX: number, clientY: number): Position | null {
+    const board = chessboardRef.current;
+    if (!board) return null;
+
+    let x = Math.floor((clientX - board.offsetLeft) / GRID_SIZE);
+    let y = Math.abs(
+      Math.ceil((clientY - board.offsetTop - GRID_SIZE * 8) / GRID_SIZE)
+    );
+
+    if (playerColor === "black") {
+      x = 7 - x;
+      y = 7 - y;
+    }
+
+    if (x < 0 || x > 7 || y < 0 || y > 7) return null;
+    return new Position(x, y);
+  }
+
   function grabPiece(e: React.MouseEvent) {
     const element = e.target as HTMLElement;
-    const board = chessboardRef.current;
-    if (element.classList.contains("chess-piece") && board) {
-      const x = Math.floor((e.clientX - board.offsetLeft) / GRID_SIZE);
-      const y = Math.abs(
-        Math.ceil((e.clientY - board.offsetTop - GRID_SIZE * 8) / GRID_SIZE)
-      );
-      setGrabPosition(new Position(x, y));
-      element.style.position = "absolute";
-      element.style.pointerEvents = "none";
-      setActivePiece(element);
-    }
+    if (!element.classList.contains("chess-piece")) return;
+
+    const position = getBoardPosition(e.clientX, e.clientY);
+    if (!position) return;
+
+    const team = playerColor === "white" ? TeamType.OUR : TeamType.OPPONENT;
+    const piece = pieces.find(
+      (p) => p.samePosition(position) && p.team === team
+    );
+
+    if (!piece) return;
+
+    setGrabPosition(position);
+    element.style.position = "absolute";
+    element.style.pointerEvents = "none";
+    setActivePiece(element);
   }
 
   function movePiece(e: React.MouseEvent) {
@@ -52,16 +77,20 @@ console.log("Chessboard – playerColor:", playerColor);
   }
 
   function dropPiece(e: React.MouseEvent) {
-    const board = chessboardRef.current;
-    if (!activePiece || !board) return;
-    const x = Math.floor((e.clientX - board.offsetLeft) / GRID_SIZE);
-    const y = Math.abs(
-      Math.ceil((e.clientY - board.offsetTop - GRID_SIZE * 8) / GRID_SIZE)
-    );
+    if (!activePiece) return;
+
+    const destination = getBoardPosition(e.clientX, e.clientY);
+    if (!destination) {
+      activePiece.style.position = "relative";
+      activePiece.style.removeProperty("top");
+      activePiece.style.removeProperty("left");
+      setActivePiece(null);
+      return;
+    }
 
     const piece = pieces.find((p) => p.samePosition(grabPosition));
     if (piece) {
-      const success = playMove(piece.clone(), new Position(x, y));
+      const success = playMove(piece.clone(), destination);
       if (!success) {
         activePiece.style.position = "relative";
         activePiece.style.removeProperty("top");
