@@ -66,6 +66,15 @@ export default function ChessClock({
 
   useEffect(() => {
     if (gameOver || totalTurns === prevTurns.current) return;
+    const timer = setInterval(() => {
+      setWhiteTime((t) => (active === 'white' ? Math.max(t - 1, 0) : t));
+      setBlackTime((t) => (active === 'black' ? Math.max(t - 1, 0) : t));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [active]);
+
+  useEffect(() => {
+    if (totalTurns === prevTurns.current) return;
     const newActive = currentTurn === TeamType.OUR ? 'white' : 'black';
     const last = newActive === 'white' ? 'black' : 'white';
     if (last === 'white') setWhiteTime((t) => t + incRef.current);
@@ -73,6 +82,8 @@ export default function ChessClock({
     setActive(newActive);
     prevTurns.current = totalTurns;
   }, [totalTurns, currentTurn, gameOver]);
+  }, [totalTurns, currentTurn]);
+
 
   return (
     <div className="flex justify-center space-x-6 text-xl text-white mb-4">
