@@ -1,6 +1,7 @@
 import express, { Request, Response, NextFunction } from "express";
 import cors from "cors";
 import { WebSocketServer, WebSocket } from "ws";
+import { Chess, Move } from "chess.js";
 
 const app = express();
 const HTTP_PORT = 3001;
@@ -16,6 +17,8 @@ interface Game {
   timeControl: string;
   stake: number;
   started: boolean;
+  board: Chess;
+  moves: Move[];
 }
 const games: Record<string, Game> = {};
 
@@ -68,7 +71,15 @@ wss.on("connection", (ws) => {
     // Neues Spiel anlegen
     if (data.type === "new-game") {
       const { id, timeControl, stake } = data.payload;
-      games[id] = { id, timeControl, stake, players: [ws], started: false };
+      games[id] = {
+        id,
+        timeControl,
+        stake,
+        players: [ws],
+        started: false,
+        board: new Chess(),
+        moves: [],
+      };
       ws.send(JSON.stringify({ type: "new-game-ack", gameId: id }));
       // Notify waiting-games
       wss.clients.forEach(client => {
@@ -121,11 +132,24 @@ wss.on("connection", (ws) => {
     if (data.type === "move") {
       const game = games[data.gameId];
       if (game) {
-        game.players.forEach(player => {
-          if (player !== ws && player.readyState === WebSocket.OPEN) {
-            player.send(JSON.stringify({ type: "move", payload: data.payload }));
-          }
-        });
+        const { from, to, promotion } = data.payload;
+        const move = game.board.move({ from, to, promotion });
+        if (move) {
+          game.moves.push(move);
+          game.players.forEach(player => {
+            if (player.readyState === WebSocket.OPEN) {
+              player.send(
+                JSON.stringify({
+                  type: "state",
+                  fen: game.board.fen(),
+                  moves: game.moves,
+                })
+              );
+            }
+          });
+        } else {
+          ws.send(JSON.stringify({ type: "error", message: "Invalid move" }));
+        }
       }
     }
 
