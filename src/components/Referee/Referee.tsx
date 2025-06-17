@@ -21,6 +21,7 @@ import { PieceType, TeamType } from "../../Types";
 import Chessboard from "../Chessboard/Chessboard";
 import { Howl } from "howler";
 import { sendMove, onMove } from "@/websocket";
+import ChessClock from "../Clock/ChessClock";
 
 
 interface RefereeProps {
@@ -53,6 +54,16 @@ export default function Referee({ initialGame, playerColor }: RefereeProps) {
   const stalemateModalRef = useRef<HTMLDivElement>(null);
   const checkmateModalRef = useRef<HTMLDivElement>(null);
   const myTeam: TeamType = playerColor === "white" ? TeamType.OUR : TeamType.OPPONENT;
+
+  function handleTimeout(winner: TeamType) {
+    setBoard((current) => {
+      const clone = current.clone();
+      clone.winningTeam = winner;
+      return clone;
+    });
+    checkmateModalRef.current?.classList.remove("hidden");
+    checkmateSound.play();
+  }
 
 useEffect(() => {
   const unsubscribe = onMove((move: { from: { x: number; y: number }; to: { x: number; y: number }; promotion?: PieceType }) => {
@@ -345,6 +356,12 @@ function isStalemate(board: Board, team: TeamType): boolean {
       <p style={{ color: "white", fontSize: "24px", textAlign: "center" }}>
         Total turns: {board.totalTurns}
       </p>
+      <ChessClock
+        timeControl={initialGame.timeControl}
+        currentTurn={board.currentTeam}
+        totalTurns={board.totalTurns}
+        onTimeout={handleTimeout}
+      />
       <div className="modal hidden" ref={modalRef}>
         <div className="modal-body">
           <img
