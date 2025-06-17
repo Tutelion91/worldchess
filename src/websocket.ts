@@ -50,11 +50,31 @@ export function onMove(callback: (move: any) => void): () => void {
   });
 }
 
+export function onState(callback: (state: any) => void): () => void {
+  return onMessage((msg) => {
+    if (msg.type === "state") {
+      callback(msg);
+    }
+  });
+}
+
+export function onInvalidMove(callback: (msg: any) => void): () => void {
+  return onMessage((msg) => {
+    if (msg.type === "invalid-move") {
+      callback(msg);
+    }
+  });
+}
+
 // Neuer Export: sendMove
 import { PieceType } from "./Types";
 
 export function sendMove(move: { from: { x: number; y: number }; to: { x: number; y: number }; promotion?: PieceType }) {
   if (!currentGameId) return;
   sendMessage({ type: "move", gameId: currentGameId, payload: move });
+}
+
+export function requestState(gameId: string) {
+  sendMessage({ type: "state-request", gameId });
 }
 

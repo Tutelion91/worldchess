@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import { connectSocket, onMessage } from "@/websocket";
+import { connectSocket, onMessage, requestState } from "@/websocket";
 import App from "../../../src/App";
 
 interface Game {
@@ -26,6 +26,7 @@ export default function GamePage() {
 
   useEffect(() => {
     connectSocket();
+    requestState(id as string);
     // HTTP-Fallback
     fetch(`http://localhost:3001/games/${id}`)
       .then(res => {

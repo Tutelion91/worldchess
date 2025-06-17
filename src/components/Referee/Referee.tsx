@@ -20,7 +20,7 @@ import {
 import { PieceType, TeamType } from "../../Types";
 import Chessboard from "../Chessboard/Chessboard";
 import { Howl } from "howler";
-import { sendMove, onMove } from "@/websocket";
+import { sendMove, onMove, onState } from "@/websocket";
 import ChessClock from "../Clock/ChessClock";
 
 
@@ -66,21 +66,16 @@ export default function Referee({ initialGame, playerColor }: RefereeProps) {
   }
 
 useEffect(() => {
-  const unsubscribe = onMove((move: { from: { x: number; y: number }; to: { x: number; y: number }; promotion?: PieceType }) => {
+  const applyMove = (move: { from: { x: number; y: number }; to: { x: number; y: number }; promotion?: PieceType }) => {
     setBoard((currentBoard) => {
       const clonedBoard = currentBoard.clone();
 
-      const piece = clonedBoard.pieces.find((p) =>
-        p.position.x === move.from.x && p.position.y === move.from.y
+      const piece = clonedBoard.pieces.find(
+        (p) => p.position.x === move.from.x && p.position.y === move.from.y
       );
 
       if (piece) {
-        clonedBoard.playMove(
-          false, // Kein En Passant nötig
-          true,  // Wir vertrauen darauf, dass der Zug korrekt ist
-          piece,
-          new Position(move.to.x, move.to.y)
-        );
+        clonedBoard.playMove(false, true, piece, new Position(move.to.x, move.to.y));
         if (move.promotion) {
           clonedBoard.pieces = clonedBoard.pieces.map((p) =>
             p.position.x === move.to.x &&
@@ -91,17 +86,45 @@ useEffect(() => {
           );
         }
         clonedBoard.totalTurns += 1;
-        // Recalculate possible moves for the new board state so the next
-        // player can see their available moves
         clonedBoard.calculateAllMoves();
       }
 
       return clonedBoard;
     });
-  });
+  };
+
+  const applyState = (state: { moves: any[] }) => {
+    setBoard(() => {
+      const clonedBoard = initialBoard.clone();
+      for (const m of state.moves) {
+        const piece = clonedBoard.pieces.find(
+          (p) => p.position.x === m.from.x && p.position.y === m.from.y
+        );
+        if (piece) {
+          clonedBoard.playMove(false, true, piece, new Position(m.to.x, m.to.y));
+          if (m.promotion) {
+            clonedBoard.pieces = clonedBoard.pieces.map((p) =>
+              p.position.x === m.to.x &&
+              p.position.y === m.to.y &&
+              p.team === piece.team
+                ? new Piece(p.position.clone(), m.promotion!, p.team, true)
+                : p
+            );
+          }
+          clonedBoard.totalTurns += 1;
+          clonedBoard.calculateAllMoves();
+        }
+      }
+      return clonedBoard;
+    });
+  };
+
+  const unsubMove = onMove(applyMove);
+  const unsubState = onState(applyState);
 
   return () => {
-    unsubscribe();
+    unsubMove();
+    unsubState();
   };
 }, []);
 
@@ -134,39 +157,8 @@ useEffect(() => {
       playedPiece.team
     );
 
-    // playMove modifies the board thus we
-    // need to call setBoard
-setBoard(() => {
-  const clonedBoard = board.clone();
-
-  const moveWasPlayed = clonedBoard.playMove(
-    enPassantMove,
-    validMove,
-    playedPiece,
-    destination
-  );
-
-  if (moveWasPlayed) {
+    // send move to server and wait for confirmation
     playedMoveIsValid = true;
-    moveSound.play();
-    clonedBoard.totalTurns += 1;
-
-    const nextTeam = playedPiece.team === TeamType.OUR ? TeamType.OPPONENT : TeamType.OUR;
-    clonedBoard.calculateAllMoves();
-
-    if (isStalemate(clonedBoard, nextTeam)) {
-      stalemateModalRef.current?.classList.remove("hidden");
-      return clonedBoard;
-    }
-
-    if (clonedBoard.winningTeam !== undefined) {
-      checkmateModalRef.current?.classList.remove("hidden");
-      checkmateSound.play();
-    }
-  }
-
-  return clonedBoard;
-});
 
     // This is for promoting a pawn
     let promotionRow = playedPiece.team === TeamType.OUR ? 7 : 0;
