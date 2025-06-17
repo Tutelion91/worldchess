@@ -71,13 +71,13 @@ useEffect(() => {
           new Position(move.to.x, move.to.y)
         );
         if (move.promotion) {
-          const promoted = clonedBoard.pieces.find(
-            (p) => p.position.x === move.to.x && p.position.y === move.to.y && p.team === piece.team
+          clonedBoard.pieces = clonedBoard.pieces.map((p) =>
+            p.position.x === move.to.x &&
+            p.position.y === move.to.y &&
+            p.team === piece.team
+              ? new Piece(p.position.clone(), move.promotion!, p.team, true)
+              : p
           );
-          if (promoted) {
-            promoted.type = move.promotion;
-            promoted.image = `/assets/images/${move.promotion}_${promoted.team}.png`;
-          }
         }
         clonedBoard.totalTurns += 1;
         // Recalculate possible moves for the new board state so the next
