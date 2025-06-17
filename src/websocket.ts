@@ -6,7 +6,12 @@ export function connectSocket() {
   if (!socket || socket.readyState === WebSocket.CLOSED) {
     socket = new WebSocket(WS_URL);
     console.log("Connecting to WebSocket...");
-    socket.onopen = () => console.log("[WebSocket] verbunden");
+    socket.onopen = () => {
+      console.log("[WebSocket] verbunden");
+      if (currentGameId) {
+        sendMessage({ type: "state-request", gameId: currentGameId });
+      }
+    };
     socket.onclose = () => {
       console.log("[WebSocket] getrennt");
       socket = null;
