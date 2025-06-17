@@ -21,6 +21,7 @@ import { PieceType, TeamType } from "../../Types";
 import Chessboard from "../Chessboard/Chessboard";
 import { Howl } from "howler";
 import { sendMove, onMove } from "@/websocket";
+import ChessClock from "../Clock/ChessClock";
 
 
 interface RefereeProps {
@@ -345,6 +346,11 @@ function isStalemate(board: Board, team: TeamType): boolean {
       <p style={{ color: "white", fontSize: "24px", textAlign: "center" }}>
         Total turns: {board.totalTurns}
       </p>
+      <ChessClock
+        timeControl={initialGame.timeControl}
+        currentTurn={board.currentTeam}
+        totalTurns={board.totalTurns}
+      />
       <div className="modal hidden" ref={modalRef}>
         <div className="modal-body">
           <img
