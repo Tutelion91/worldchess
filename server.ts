@@ -70,6 +70,22 @@ wss.on("connection", (ws) => {
       return console.error("Ungültiges JSON:", message);
     }
 
+    if (data.type === "state-request") {
+      const game = games[data.gameId];
+      if (game) {
+        ws.send(
+          JSON.stringify({
+            type: "state",
+            fen: game.board.fen(),
+            moves: game.moves,
+          })
+        );
+      } else {
+        ws.send(JSON.stringify({ type: "error", message: "Spiel nicht gefunden" }));
+      }
+      return;
+    }
+
     // Neues Spiel anlegen
     if (data.type === "new-game") {
       const { id, timeControl, stake } = data.payload;
