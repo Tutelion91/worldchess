@@ -5,6 +5,7 @@ interface ChessClockProps {
   timeControl: string;
   currentTurn: TeamType;
   totalTurns: number;
+  onTimeout: (winner: TeamType) => void;
 }
 
 function parseTimeControl(tc: string): { base: number; inc: number } {
@@ -28,10 +29,12 @@ export default function ChessClock({
   timeControl,
   currentTurn,
   totalTurns,
+  onTimeout,
 }: ChessClockProps) {
   const { base, inc } = parseTimeControl(timeControl);
   const [whiteTime, setWhiteTime] = useState(base + 5); // 5s bonus for white
   const [blackTime, setBlackTime] = useState(base);
+  const [gameOver, setGameOver] = useState(false);
   const [active, setActive] = useState<'white' | 'black'>(
     currentTurn === TeamType.OUR ? 'white' : 'black'
   );
@@ -39,6 +42,30 @@ export default function ChessClock({
   const incRef = useRef(inc);
 
   useEffect(() => {
+    if (gameOver) return;
+    const timer = setInterval(() => {
+      setWhiteTime((t) => {
+        const next = active === 'white' ? Math.max(t - 1, 0) : t;
+        if (!gameOver && active === 'white' && next === 0) {
+          setGameOver(true);
+          onTimeout(TeamType.OPPONENT);
+        }
+        return next;
+      });
+      setBlackTime((t) => {
+        const next = active === 'black' ? Math.max(t - 1, 0) : t;
+        if (!gameOver && active === 'black' && next === 0) {
+          setGameOver(true);
+          onTimeout(TeamType.OUR);
+        }
+        return next;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [active, gameOver, onTimeout]);
+
+  useEffect(() => {
+    if (gameOver || totalTurns === prevTurns.current) return;
     const timer = setInterval(() => {
       setWhiteTime((t) => (active === 'white' ? Math.max(t - 1, 0) : t));
       setBlackTime((t) => (active === 'black' ? Math.max(t - 1, 0) : t));
@@ -54,7 +81,9 @@ export default function ChessClock({
     else setBlackTime((t) => t + incRef.current);
     setActive(newActive);
     prevTurns.current = totalTurns;
+  }, [totalTurns, currentTurn, gameOver]);
   }, [totalTurns, currentTurn]);
+
 
   return (
     <div className="flex justify-center space-x-6 text-xl text-white mb-4">

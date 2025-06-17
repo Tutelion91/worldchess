@@ -55,6 +55,16 @@ export default function Referee({ initialGame, playerColor }: RefereeProps) {
   const checkmateModalRef = useRef<HTMLDivElement>(null);
   const myTeam: TeamType = playerColor === "white" ? TeamType.OUR : TeamType.OPPONENT;
 
+  function handleTimeout(winner: TeamType) {
+    setBoard((current) => {
+      const clone = current.clone();
+      clone.winningTeam = winner;
+      return clone;
+    });
+    checkmateModalRef.current?.classList.remove("hidden");
+    checkmateSound.play();
+  }
+
 useEffect(() => {
   const unsubscribe = onMove((move: { from: { x: number; y: number }; to: { x: number; y: number }; promotion?: PieceType }) => {
     setBoard((currentBoard) => {
@@ -350,6 +360,7 @@ function isStalemate(board: Board, team: TeamType): boolean {
         timeControl={initialGame.timeControl}
         currentTurn={board.currentTeam}
         totalTurns={board.totalTurns}
+        onTimeout={handleTimeout}
       />
       <div className="modal hidden" ref={modalRef}>
         <div className="modal-body">
