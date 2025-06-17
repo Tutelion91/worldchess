@@ -21,6 +21,8 @@ interface Game {
   moves: Move[];
 }
 const games: Record<string, Game> = {};
+// Mapping from websocket connections to the assigned player color
+const playerColors = new Map<WebSocket, 'white' | 'black'>();
 
 // HTTP-Endpoint: Liste offener Spiele (weniger als 2 Spieler)
 app.get("/games", (req: Request, res: Response, next: NextFunction) => {
@@ -107,15 +109,22 @@ wss.on("connection", (ws) => {
       // Starte Spiel erst, wenn genau 2 unterschiedliche Clients verbunden sind
       if (!game.started && game.players.length === 2) {
         game.started = true;
-        const colors = ["white", "black"];
+        const colors: Array<'white' | 'black'> = ['white', 'black'];
         colors.sort(() => Math.random() - 0.5);
         game.players.forEach((player, idx) => {
           const color = colors[idx];
+          playerColors.set(player, color);
           player.send(
             JSON.stringify({
               type: "start",
-              payload: { id: game.id, timeControl: game.timeControl, stake: game.stake, started: true },
-              color
+              payload: {
+                id: game.id,
+                timeControl: game.timeControl,
+                stake: game.stake,
+                started: true
+              },
+              color,
+              fen: game.board.fen()
             })
           );
         });
@@ -132,6 +141,12 @@ wss.on("connection", (ws) => {
     if (data.type === "move") {
       const game = games[data.gameId];
       if (game) {
+        const playerColor = playerColors.get(ws);
+        const turnColor = game.board.turn() === "w" ? "white" : "black";
+        if (playerColor !== turnColor) {
+          ws.send(JSON.stringify({ type: "error", message: "Not your turn" }));
+          return;
+        }
         const { from, to, promotion } = data.payload;
         const move = game.board.move({ from, to, promotion });
         if (move) {
@@ -157,6 +172,7 @@ wss.on("connection", (ws) => {
 
   ws.on("close", () => {
     console.log("WebSocket: Client getrennt");
+    playerColors.delete(ws);
     for (const id in games) {
       const room = games[id];
       room.players = room.players.filter(p => p !== ws);
