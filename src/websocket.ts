@@ -51,7 +51,9 @@ export function onMove(callback: (move: any) => void): () => void {
 }
 
 // Neuer Export: sendMove
-export function sendMove(move: { from: { x: number; y: number }; to: { x: number; y: number } }) {
+import { PieceType } from "./Types";
+
+export function sendMove(move: { from: { x: number; y: number }; to: { x: number; y: number }; promotion?: PieceType }) {
   if (!currentGameId) return;
   sendMessage({ type: "move", gameId: currentGameId, payload: move });
 }

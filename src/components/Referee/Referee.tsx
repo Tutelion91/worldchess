@@ -48,13 +48,14 @@ const checkmateSound = new Howl({
 export default function Referee({ initialGame, playerColor }: RefereeProps) {
   const [board, setBoard] = useState<Board>(initialBoard.clone());
   const [promotionPawn, setPromotionPawn] = useState<Piece>();
+  const [pendingPromotion, setPendingPromotion] = useState<{ from: Position; to: Position } | null>(null);
   const modalRef = useRef<HTMLDivElement>(null);
   const stalemateModalRef = useRef<HTMLDivElement>(null);
   const checkmateModalRef = useRef<HTMLDivElement>(null);
   const myTeam: TeamType = playerColor === "white" ? TeamType.OUR : TeamType.OPPONENT;
 
 useEffect(() => {
-  const unsubscribe = onMove((move: { from: { x: number; y: number }; to: { x: number; y: number } }) => {
+  const unsubscribe = onMove((move: { from: { x: number; y: number }; to: { x: number; y: number }; promotion?: PieceType }) => {
     setBoard((currentBoard) => {
       const clonedBoard = currentBoard.clone();
 
@@ -69,6 +70,15 @@ useEffect(() => {
           piece,
           new Position(move.to.x, move.to.y)
         );
+        if (move.promotion) {
+          const promoted = clonedBoard.pieces.find(
+            (p) => p.position.x === move.to.x && p.position.y === move.to.y && p.team === piece.team
+          );
+          if (promoted) {
+            promoted.type = move.promotion;
+            promoted.image = `/assets/images/${move.promotion}_${promoted.team}.png`;
+          }
+        }
         clonedBoard.totalTurns += 1;
         // Recalculate possible moves for the new board state so the next
         // player can see their available moves
@@ -147,21 +157,24 @@ setBoard(() => {
   return clonedBoard;
 });
 
-sendMove({
-  from: { x: playedPiece.position.x, y: playedPiece.position.y },
-  to: { x: destination.x, y: destination.y },
-});
-
-
     // This is for promoting a pawn
     let promotionRow = playedPiece.team === TeamType.OUR ? 7 : 0;
 
     if (destination.y === promotionRow && playedPiece.isPawn) {
       modalRef.current?.classList.remove("hidden");
-      setPromotionPawn((previousPromotionPawn) => {
+      setPromotionPawn(() => {
         const clonedPlayedPiece = playedPiece.clone();
         clonedPlayedPiece.position = destination.clone();
         return clonedPlayedPiece;
+      });
+      setPendingPromotion({
+        from: playedPiece.position.clone(),
+        to: destination.clone(),
+      });
+    } else {
+      sendMove({
+        from: { x: playedPiece.position.x, y: playedPiece.position.y },
+        to: { x: destination.x, y: destination.y },
       });
     }
 
@@ -305,6 +318,15 @@ function isStalemate(board: Board, team: TeamType): boolean {
 
       return clonedBoard;
     });
+
+    if (pendingPromotion) {
+      sendMove({
+        from: { x: pendingPromotion.from.x, y: pendingPromotion.from.y },
+        to: { x: pendingPromotion.to.x, y: pendingPromotion.to.y },
+        promotion: pieceType,
+      });
+      setPendingPromotion(null);
+    }
 
     modalRef.current?.classList.add("hidden");
   }
