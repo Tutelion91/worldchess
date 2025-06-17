@@ -84,6 +84,7 @@ console.log("Chessboard – playerColor:", playerColor);
       activePiece.style.position = "relative";
       activePiece.style.removeProperty("top");
       activePiece.style.removeProperty("left");
+      activePiece.style.pointerEvents = "auto";
       setActivePiece(null);
       return;
     }
@@ -96,6 +97,9 @@ console.log("Chessboard – playerColor:", playerColor);
         activePiece.style.removeProperty("top");
         activePiece.style.removeProperty("left");
       }
+    }
+    if (activePiece) {
+      activePiece.style.pointerEvents = "auto";
     }
     setActivePiece(null);
   }
