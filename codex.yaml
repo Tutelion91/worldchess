@@ -1,0 +1,3 @@
+# worldchess/codex.yaml
+setup_scripts:
+  - ./setup.sh
