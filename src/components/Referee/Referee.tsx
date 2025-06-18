@@ -21,6 +21,7 @@ import { PieceType, TeamType } from "../../Types";
 import Chessboard from "../Chessboard/Chessboard";
 import { Howl } from "howler";
 import { sendMove, onMove, onState, onError, requestState } from "@/websocket";
+import { symbolToPieceType } from "@/utils/pieceSymbols";
 import ChessClock from "../Clock/ChessClock";
 
 
@@ -66,7 +67,7 @@ export default function Referee({ initialGame, playerColor }: RefereeProps) {
   }
 
 useEffect(() => {
-  const applyMove = (move: { from: { x: number; y: number }; to: { x: number; y: number }; promotion?: PieceType }) => {
+  const applyMove = (move: { from: { x: number; y: number }; to: { x: number; y: number }; promotion?: string }) => {
     setBoard((currentBoard) => {
       const clonedBoard = currentBoard.clone();
 
@@ -77,13 +78,16 @@ useEffect(() => {
       if (piece) {
         clonedBoard.playMove(false, true, piece, new Position(move.to.x, move.to.y));
         if (move.promotion) {
-          clonedBoard.pieces = clonedBoard.pieces.map((p) =>
-            p.position.x === move.to.x &&
-            p.position.y === move.to.y &&
-            p.team === piece.team
-              ? new Piece(p.position.clone(), move.promotion!, p.team, true)
-              : p
-          );
+          const promotionType = symbolToPieceType(move.promotion);
+          if (promotionType) {
+            clonedBoard.pieces = clonedBoard.pieces.map((p) =>
+              p.position.x === move.to.x &&
+              p.position.y === move.to.y &&
+              p.team === piece.team
+                ? new Piece(p.position.clone(), promotionType, p.team, true)
+                : p
+            );
+          }
         }
         clonedBoard.totalTurns += 1;
         clonedBoard.calculateAllMoves();
@@ -103,13 +107,16 @@ useEffect(() => {
         if (piece) {
           clonedBoard.playMove(false, true, piece, new Position(m.to.x, m.to.y));
           if (m.promotion) {
-            clonedBoard.pieces = clonedBoard.pieces.map((p) =>
-              p.position.x === m.to.x &&
-              p.position.y === m.to.y &&
-              p.team === piece.team
-                ? new Piece(p.position.clone(), m.promotion!, p.team, true)
-                : p
-            );
+            const promotionType = symbolToPieceType(m.promotion);
+            if (promotionType) {
+              clonedBoard.pieces = clonedBoard.pieces.map((p) =>
+                p.position.x === m.to.x &&
+                p.position.y === m.to.y &&
+                p.team === piece.team
+                  ? new Piece(p.position.clone(), promotionType, p.team, true)
+                  : p
+              );
+            }
           }
           clonedBoard.totalTurns += 1;
           clonedBoard.calculateAllMoves();
