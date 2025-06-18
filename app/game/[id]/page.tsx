@@ -28,7 +28,7 @@ export default function GamePage() {
     connectSocket();
     requestState(id as string);
     // HTTP-Fallback
-    fetch(`http://localhost:3001/games/${id}`)
+    fetch(`${process.env.NEXT_PUBLIC_API_URL}/games/${id}`)
       .then(res => {
         if (!res.ok) throw new Error("Spiel nicht gefunden");
         return res.json();
