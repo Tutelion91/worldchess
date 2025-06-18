@@ -3,6 +3,8 @@ import { useEffect, useState } from "react";
 import { connectSocket, onMessage } from "@/websocket";
 import Link from "next/link";
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+
 type WaitingGame = { id: string; timeControl: string; stake: number; };
 
 export default function WaitingGamesPage() {
@@ -10,7 +12,7 @@ export default function WaitingGamesPage() {
 
   useEffect(() => {
     // Initiale Liste via HTTP
-    fetch(`${process.env.NEXT_PUBLIC_API_URL}/games`)
+    fetch(`${API_URL}/games`)
       .then(res => res.json())
       .then((data: WaitingGame[]) => setGames(data))
       .catch(console.error);
