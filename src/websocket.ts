@@ -63,9 +63,14 @@ export function onState(callback: (state: any) => void): () => void {
   });
 }
 
-export function onInvalidMove(callback: (msg: any) => void): () => void {
+/**
+ * Register a callback for error messages coming from the server.
+ * Errors can occur for various reasons such as invalid moves or
+ * trying to play out of turn.
+ */
+export function onError(callback: (msg: any) => void): () => void {
   return onMessage((msg) => {
-    if (msg.type === "invalid-move") {
+    if (msg.type === "error") {
       callback(msg);
     }
   });
