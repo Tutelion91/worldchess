@@ -28,9 +28,7 @@ console.log("Chessboard – playerColor:", playerColor);
     if (!board) return null;
 
     let x = Math.floor((clientX - board.offsetLeft) / GRID_SIZE);
-    let y = Math.abs(
-      Math.ceil((clientY - board.offsetTop - GRID_SIZE * 8) / GRID_SIZE)
-    );
+    let y = 7 - Math.floor((clientY - board.offsetTop) / GRID_SIZE);
 
     if (playerColor === "black") {
       x = 7 - x;
