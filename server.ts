@@ -2,10 +2,26 @@ import express, { Request, Response, NextFunction } from "express";
 import cors from "cors";
 import { WebSocketServer, WebSocket } from "ws";
 import { Chess } from "chess.js";
+import fs from "fs";
+import path from "path";
 
 const app = express();
 const HTTP_PORT = 3001;
 const WS_PORT = 8080;
+
+// Set up logging
+const LOG_DIR = path.join(__dirname, "logs");
+if (!fs.existsSync(LOG_DIR)) {
+  fs.mkdirSync(LOG_DIR);
+}
+
+function logMove(file: string, message: string) {
+  fs.appendFile(path.join(LOG_DIR, file), message + "\n", err => {
+    if (err) {
+      console.error("Failed to write log", err);
+    }
+  });
+}
 
 app.use(cors());
 app.use(express.json());
@@ -194,22 +210,38 @@ wss.on("connection", (ws) => {
         }
         const { from, to, promotion } = data.payload;
         let move;
+        let fromAlg: string;
+        let toAlg: string;
         try {
-          const fromAlg = coordsToAlgebraic(from.x, from.y);
-          const toAlg = coordsToAlgebraic(to.x, to.y);
+          fromAlg = coordsToAlgebraic(from.x, from.y);
+          toAlg = coordsToAlgebraic(to.x, to.y);
           move = game.board.move({ from: fromAlg, to: toAlg, promotion });
         } catch (err) {
           ws.send(JSON.stringify({ type: "error", message: "Invalid coordinates" }));
           return;
         }
+
+        // Log the move sent by the client
+        if (playerColor) {
+          logMove(`client_${playerColor}.log`, JSON.stringify({ from: fromAlg, to: toAlg, promotion }));
+        }
+
         if (move) {
           game.moves.push({
             from: algebraicToCoords(move.from),
             to: algebraicToCoords(move.to),
             promotion,
           });
+
+          // Log the move as processed by the server
+          logMove("server.log", JSON.stringify({ from: move.from, to: move.to, promotion }));
+
           game.players.forEach(player => {
             if (player.readyState === WebSocket.OPEN) {
+              const color = playerColors.get(player);
+              if (color) {
+                logMove(`client_${color}.log`, JSON.stringify({ from: move!.from, to: move!.to, promotion }));
+              }
               player.send(
                 JSON.stringify({
                   type: "state",

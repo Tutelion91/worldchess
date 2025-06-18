@@ -38,3 +38,8 @@ yarn-error.log*
 
 # typescript
 *.tsbuildinfo
+
+# log files
+logs/
+!logs/.gitkeep
+
