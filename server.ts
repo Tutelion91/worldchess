@@ -24,6 +24,14 @@ const games: Record<string, Game> = {};
 // Mapping from websocket connections to the assigned player color
 const playerColors = new Map<WebSocket, 'white' | 'black'>();
 
+function coordsToAlgebraic(x: number, y: number): string {
+  const files = "abcdefgh";
+  if (x < 0 || x > 7 || y < 0 || y > 7) {
+    throw new Error(`Invalid coordinates: (${x}, ${y})`);
+  }
+  return `${files[x]}${y + 1}`;
+}
+
 // HTTP-Endpoint: Liste offener Spiele (weniger als 2 Spieler)
 app.get("/games", (req: Request, res: Response, next: NextFunction) => {
   console.log(
@@ -164,7 +172,15 @@ wss.on("connection", (ws) => {
           return;
         }
         const { from, to, promotion } = data.payload;
-        const move = game.board.move({ from, to, promotion });
+        let move;
+        try {
+          const fromAlg = coordsToAlgebraic(from.x, from.y);
+          const toAlg = coordsToAlgebraic(to.x, to.y);
+          move = game.board.move({ from: fromAlg, to: toAlg, promotion });
+        } catch (err) {
+          ws.send(JSON.stringify({ type: "error", message: "Invalid coordinates" }));
+          return;
+        }
         if (move) {
           game.moves.push(move);
           game.players.forEach(player => {
