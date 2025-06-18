@@ -10,7 +10,7 @@ export default function WaitingGamesPage() {
 
   useEffect(() => {
     // Initiale Liste via HTTP
-    fetch("http://localhost:3001/games")
+    fetch(`${process.env.NEXT_PUBLIC_API_URL}/games`)
       .then(res => res.json())
       .then((data: WaitingGame[]) => setGames(data))
       .catch(console.error);

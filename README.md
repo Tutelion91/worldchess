@@ -14,6 +14,19 @@ pnpm dev
 bun dev
 ```
 
+Create a `.env.local` file based on `.env.local.example` and adjust the API and WebSocket URLs if necessary:
+
+```bash
+cp .env.local.example .env.local
+```
+
+The file defines the following variables used by the client:
+
+```env
+NEXT_PUBLIC_API_URL=http://localhost:3001
+NEXT_PUBLIC_WS_URL=ws://localhost:8080
+```
+
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
