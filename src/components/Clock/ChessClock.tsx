@@ -82,7 +82,6 @@ export default function ChessClock({
     setActive(newActive);
     prevTurns.current = totalTurns;
   }, [totalTurns, currentTurn, gameOver]);
-  }, [totalTurns, currentTurn]);
 
 
   return (
