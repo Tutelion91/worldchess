@@ -4,6 +4,8 @@ import { useParams } from "next/navigation";
 import { connectSocket, onMessage, requestState } from "@/websocket";
 import App from "../../../src/App";
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+
 interface Game {
   id: string;
   timeControl: string;
@@ -28,7 +30,7 @@ export default function GamePage() {
     connectSocket();
     requestState(id as string);
     // HTTP-Fallback
-    fetch(`${process.env.NEXT_PUBLIC_API_URL}/games/${id}`)
+    fetch(`${API_URL}/games/${id}`)
       .then(res => {
         if (!res.ok) throw new Error("Spiel nicht gefunden");
         return res.json();
