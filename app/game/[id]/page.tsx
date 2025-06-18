@@ -47,8 +47,10 @@ export default function GamePage() {
         console.log(localStorage.getItem("worldchess-color"));
       }
       if (msg.type === "state") {
-        const gameData = msg.game ?? msg.payload ?? msg;
-        setGame(gameData);
+        if (msg.game || msg.payload) {
+          const gameData = msg.game ?? msg.payload;
+          setGame(gameData);
+        }
         if (msg.color) {
           setPlayerColor(msg.color);
           localStorage.setItem("worldchess-color", msg.color);
