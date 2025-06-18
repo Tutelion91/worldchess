@@ -308,18 +308,20 @@ function isStalemate(board: Board, team: TeamType): boolean {
   }
 
   function promotePawn(pieceType: PieceType) {
-    if (promotionPawn === undefined) {
+    if (!promotionPawn || !pendingPromotion) {
       return;
     }
 
+    const { from, to } = pendingPromotion;
+
     setBoard((previousBoard) => {
-      const clonedBoard = board.clone();
+      const clonedBoard = previousBoard.clone();
       clonedBoard.pieces = clonedBoard.pieces.reduce((results, piece) => {
-        if (piece.samePiecePosition(promotionPawn)) {
-          results.push(
-            new Piece(piece.position.clone(), pieceType, piece.team, true)
-          );
-        } else {
+        if (piece.position.x === from.x && piece.position.y === from.y && piece.team === promotionPawn.team) {
+          // replace the moving pawn with the promoted piece at the destination
+          results.push(new Piece(to.clone(), pieceType, piece.team, true));
+        } else if (!(piece.position.x === to.x && piece.position.y === to.y)) {
+          // discard any captured piece on the destination square
           results.push(piece);
         }
         return results;
@@ -330,14 +332,12 @@ function isStalemate(board: Board, team: TeamType): boolean {
       return clonedBoard;
     });
 
-    if (pendingPromotion) {
-      sendMove({
-        from: { x: pendingPromotion.from.x, y: pendingPromotion.from.y },
-        to: { x: pendingPromotion.to.x, y: pendingPromotion.to.y },
-        promotion: pieceType,
-      });
-      setPendingPromotion(null);
-    }
+    sendMove({
+      from: { x: from.x, y: from.y },
+      to: { x: to.x, y: to.y },
+      promotion: pieceType,
+    });
+    setPendingPromotion(null);
 
     modalRef.current?.classList.add("hidden");
   }
