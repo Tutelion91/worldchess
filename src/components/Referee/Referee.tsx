@@ -20,7 +20,7 @@ import {
 import { PieceType, TeamType } from "../../Types";
 import Chessboard from "../Chessboard/Chessboard";
 import { Howl } from "howler";
-import { sendMove, onMove, onState } from "@/websocket";
+import { sendMove, onMove, onState, onError, requestState } from "@/websocket";
 import ChessClock from "../Clock/ChessClock";
 
 
@@ -119,12 +119,20 @@ useEffect(() => {
     });
   };
 
+  const handleError = (msg: any) => {
+    // Refresh the board state in case we desynced
+    requestState(initialGame.id);
+    alert(msg.message || "An error occurred");
+  };
+
   const unsubMove = onMove(applyMove);
   const unsubState = onState(applyState);
+  const unsubError = onError(handleError);
 
   return () => {
     unsubMove();
     unsubState();
+    unsubError();
   };
 }, []);
 
