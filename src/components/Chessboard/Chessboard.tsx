@@ -4,6 +4,7 @@ import "./Chessboard.css";
 import Tile from "../Tile/Tile";
 import { VERTICAL_AXIS, HORIZONTAL_AXIS, GRID_SIZE } from "../../Constants";
 import { Piece, Position } from "../../models";
+import { getBoardPosition as calculateBoardPosition } from "../../utils/getBoardPosition";
 import { TeamType } from "../../Types";
 
 interface Props {
@@ -23,27 +24,24 @@ export default function Chessboard({ playMove, pieces ,playerColor }: Props) {
 console.log("Chessboard – playerColor:", playerColor);
 
   // Convert mouse coordinates to board coordinates depending on orientation
-  function getBoardPosition(clientX: number, clientY: number): Position | null {
+  function getBoardPositionLocal(clientX: number, clientY: number): Position | null {
     const board = chessboardRef.current;
     if (!board) return null;
 
-    let x = Math.floor((clientX - board.offsetLeft) / GRID_SIZE);
-    let y = 7 - Math.floor((clientY - board.offsetTop) / GRID_SIZE);
-
-    if (playerColor === "black") {
-      x = 7 - x;
-      y = 7 - y;
-    }
-
-    if (x < 0 || x > 7 || y < 0 || y > 7) return null;
-    return new Position(x, y);
+    return calculateBoardPosition(
+      clientX,
+      clientY,
+      board.offsetLeft,
+      board.offsetTop,
+      playerColor
+    );
   }
 
   function grabPiece(e: React.MouseEvent) {
     const element = e.target as HTMLElement;
     if (!element.classList.contains("chess-piece")) return;
 
-    const position = getBoardPosition(e.clientX, e.clientY);
+    const position = getBoardPositionLocal(e.clientX, e.clientY);
     if (!position) return;
 
     const team = playerColor === "white" ? TeamType.OUR : TeamType.OPPONENT;
@@ -77,7 +75,7 @@ console.log("Chessboard – playerColor:", playerColor);
   function dropPiece(e: React.MouseEvent) {
     if (!activePiece) return;
 
-    const destination = getBoardPosition(e.clientX, e.clientY);
+    const destination = getBoardPositionLocal(e.clientX, e.clientY);
     if (!destination) {
       activePiece.style.position = "relative";
       activePiece.style.removeProperty("top");
