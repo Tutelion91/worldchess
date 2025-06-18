@@ -78,10 +78,16 @@ export function onError(callback: (msg: any) => void): () => void {
 
 // Neuer Export: sendMove
 import { PieceType } from "./Types";
+import { pieceTypeToSymbol } from "./utils/pieceSymbols";
 
 export function sendMove(move: { from: { x: number; y: number }; to: { x: number; y: number }; promotion?: PieceType }) {
   if (!currentGameId) return;
-  sendMessage({ type: "move", gameId: currentGameId, payload: move });
+  const payload = {
+    from: move.from,
+    to: move.to,
+    promotion: move.promotion ? pieceTypeToSymbol(move.promotion) : undefined,
+  };
+  sendMessage({ type: "move", gameId: currentGameId, payload });
 }
 
 export function requestState(gameId: string) {
