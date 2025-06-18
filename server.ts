@@ -1,7 +1,7 @@
 import express, { Request, Response, NextFunction } from "express";
 import cors from "cors";
 import { WebSocketServer, WebSocket } from "ws";
-import { Chess, Move } from "chess.js";
+import { Chess } from "chess.js";
 
 const app = express();
 const HTTP_PORT = 3001;
@@ -18,7 +18,11 @@ interface Game {
   stake: number;
   started: boolean;
   board: Chess;
-  moves: Move[];
+  moves: Array<{
+    from: { x: number; y: number };
+    to: { x: number; y: number };
+    promotion?: string;
+  }>;
 }
 const games: Record<string, Game> = {};
 // Mapping from websocket connections to the assigned player color
@@ -30,6 +34,16 @@ function coordsToAlgebraic(x: number, y: number): string {
     throw new Error(`Invalid coordinates: (${x}, ${y})`);
   }
   return `${files[x]}${y + 1}`;
+}
+
+function algebraicToCoords(square: string): { x: number; y: number } {
+  const files = "abcdefgh";
+  if (!/^([a-h][1-8])$/.test(square)) {
+    throw new Error(`Invalid square: ${square}`);
+  }
+  const x = files.indexOf(square[0]);
+  const y = parseInt(square[1], 10) - 1;
+  return { x, y };
 }
 
 // HTTP-Endpoint: Liste offener Spiele (weniger als 2 Spieler)
@@ -81,6 +95,13 @@ wss.on("connection", (ws) => {
     if (data.type === "state-request") {
       const game = games[data.gameId];
       if (game) {
+        if (game.moves.length && typeof (game.moves[0] as any).from === "string") {
+          game.moves = (game.moves as any).map((m: any) => ({
+            from: algebraicToCoords(m.from),
+            to: algebraicToCoords(m.to),
+            promotion: m.promotion,
+          }));
+        }
         ws.send(
           JSON.stringify({
             type: "state",
@@ -182,7 +203,11 @@ wss.on("connection", (ws) => {
           return;
         }
         if (move) {
-          game.moves.push(move);
+          game.moves.push({
+            from: algebraicToCoords(move.from),
+            to: algebraicToCoords(move.to),
+            promotion,
+          });
           game.players.forEach(player => {
             if (player.readyState === WebSocket.OPEN) {
               player.send(
