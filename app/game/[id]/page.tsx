@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import { connectSocket, onMessage, requestState } from "@/websocket";
+import { connectSocket, connectToGame, onMessage, requestState } from "@/websocket";
 import App from "../../../src/App";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
@@ -28,6 +28,7 @@ export default function GamePage() {
 
   useEffect(() => {
     connectSocket();
+    connectToGame(id as string);
     requestState(id as string);
     // HTTP-Fallback
     fetch(`${API_URL}/games/${id}`)
@@ -44,6 +45,14 @@ export default function GamePage() {
         setPlayerColor(msg.color);
         localStorage.setItem("worldchess-color", msg.color);
         console.log(localStorage.getItem("worldchess-color"));
+      }
+      if (msg.type === "state") {
+        const gameData = msg.game ?? msg.payload ?? msg;
+        setGame(gameData);
+        if (msg.color) {
+          setPlayerColor(msg.color);
+          localStorage.setItem("worldchess-color", msg.color);
+        }
       }
       if (msg.type === "error") {
         setError(msg.message);
