@@ -20,7 +20,14 @@ import {
 import { PieceType, TeamType } from "../../Types";
 import Chessboard from "../Chessboard/Chessboard";
 import { Howl } from "howler";
-import { sendMove, onMove, onState, onError, requestState } from "@/websocket";
+import {
+  sendMove,
+  onMove,
+  onState,
+  onError,
+  onGameOver,
+  requestState,
+} from "@/websocket";
 import { symbolToPieceType } from "@/utils/pieceSymbols";
 import { isServerEnPassant } from "@/utils/serverMove";
 import ChessClock from "../Clock/ChessClock";
@@ -56,6 +63,7 @@ export default function Referee({ initialGame, playerColor }: RefereeProps) {
   const modalRef = useRef<HTMLDivElement>(null);
   const stalemateModalRef = useRef<HTMLDivElement>(null);
   const checkmateModalRef = useRef<HTMLDivElement>(null);
+  const [gameOver, setGameOver] = useState(false);
   const myTeam: TeamType = playerColor === "white" ? TeamType.OUR : TeamType.OPPONENT;
 
   function handleTimeout(winner: TeamType) {
@@ -64,6 +72,7 @@ export default function Referee({ initialGame, playerColor }: RefereeProps) {
       clone.winningTeam = winner;
       return clone;
     });
+    setGameOver(true);
     checkmateModalRef.current?.classList.remove("hidden");
     checkmateSound.play();
   }
@@ -112,14 +121,31 @@ useEffect(() => {
     alert(msg.message || "An error occurred");
   };
 
+  const handleGameOver = (result: { winner: string | null; reason: string }) => {
+    setBoard((current) => {
+      const clone = current.clone();
+      if (result.reason === "checkmate" && result.winner) {
+        clone.winningTeam = result.winner === "white" ? TeamType.OUR : TeamType.OPPONENT;
+        clone.isStalemate = false;
+      } else {
+        clone.winningTeam = undefined;
+        clone.isStalemate = true;
+      }
+      return clone;
+    });
+    setGameOver(true);
+  };
+
   const unsubMove = onMove(applyMove);
   const unsubState = onState(applyState);
   const unsubError = onError(handleError);
+  const unsubGameOver = onGameOver(handleGameOver);
 
   return () => {
     unsubMove();
     unsubState();
     unsubError();
+    unsubGameOver();
   };
 }, []);
 
@@ -359,6 +385,7 @@ function isStalemate(board: Board, team: TeamType): boolean {
         currentTurn={board.currentTeam}
         totalTurns={board.totalTurns}
         onTimeout={handleTimeout}
+        gameOver={gameOver}
       />
       <div className="modal hidden" ref={modalRef}>
         <div className="modal-body">
