@@ -16,10 +16,12 @@ export class Board {
   pieces: Piece[];
   totalTurns: number;
   winningTeam?: TeamType;
+  isStalemate: boolean;
 
   constructor(pieces: Piece[], totalTurns: number) {
     this.pieces = pieces;
     this.totalTurns = totalTurns;
+    this.isStalemate = false;
   }
 
   get currentTeam(): TeamType {
@@ -27,6 +29,8 @@ export class Board {
   }
 
   calculateAllMoves() {
+    this.isStalemate = false;
+
     // Calculate the moves of all the pieces
     for (const piece of this.pieces) {
       piece.possibleMoves = this.getValidMoves(piece, this.pieces);
@@ -57,14 +61,20 @@ export class Board {
     if (
       this.pieces
         .filter((p) => p.team === this.currentTeam)
-        .some(
-          (p) => p.possibleMoves !== undefined && p.possibleMoves.length > 0
-        )
-    )
+        .some((p) => p.possibleMoves !== undefined && p.possibleMoves.length > 0)
+    ) {
+      this.isStalemate = false;
       return;
+    }
 
-    this.winningTeam =
-      this.currentTeam === TeamType.OUR ? TeamType.OPPONENT : TeamType.OUR;
+    if (this.isKingInCheck(this.currentTeam)) {
+      this.winningTeam =
+        this.currentTeam === TeamType.OUR ? TeamType.OPPONENT : TeamType.OUR;
+      this.isStalemate = false;
+    } else {
+      this.winningTeam = undefined;
+      this.isStalemate = true;
+    }
   }
 
   checkCurrentTeamMoves() {
@@ -130,6 +140,27 @@ export class Board {
         }
       }
     }
+  }
+
+  isKingInCheck(team: TeamType): boolean {
+    const king = this.pieces.find((p) => p.isKing && p.team === team);
+    if (!king) return false;
+
+    for (const enemy of this.pieces.filter((p) => p.team !== team)) {
+      const moves = this.getValidMoves(enemy, this.pieces);
+      if (enemy.isPawn) {
+        if (
+          moves.some(
+            (m) => m.x !== enemy.position.x && m.samePosition(king.position)
+          )
+        ) {
+          return true;
+        }
+      } else if (moves.some((m) => m.samePosition(king.position))) {
+        return true;
+      }
+    }
+    return false;
   }
 
   getValidMoves(piece: Piece, boardState: Piece[]): Position[] {
@@ -280,9 +311,12 @@ export class Board {
   }
 
   clone(): Board {
-    return new Board(
+    const cloned = new Board(
       this.pieces.map((p) => p.clone()),
       this.totalTurns
     );
+    cloned.winningTeam = this.winningTeam;
+    cloned.isStalemate = this.isStalemate;
+    return cloned;
   }
 }

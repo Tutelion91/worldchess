@@ -128,6 +128,9 @@ useEffect(() => {
     checkmateModalRef.current?.classList.remove("hidden");
     stalemateModalRef.current?.classList.add("hidden");
     checkmateSound.play();
+  } else if (board.isStalemate) {
+    stalemateModalRef.current?.classList.remove("hidden");
+    checkmateModalRef.current?.classList.add("hidden");
   }
 }, [board]);
 
