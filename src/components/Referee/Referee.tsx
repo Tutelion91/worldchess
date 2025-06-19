@@ -24,6 +24,7 @@ import { sendMove, onMove, onState, onError, requestState } from "@/websocket";
 import { symbolToPieceType } from "@/utils/pieceSymbols";
 import ChessClock from "../Clock/ChessClock";
 
+import { parseFen } from "@/utils/fen";
 
 interface RefereeProps {
   initialGame: {
@@ -110,46 +111,8 @@ useEffect(() => {
     });
   };
 
-  const applyState = (state: { moves: any[] }) => {
-    setBoard(() => {
-      const clonedBoard = initialBoard.clone();
-      for (const m of state.moves) {
-        const piece = clonedBoard.pieces.find(
-          (p) => p.position.x === m.from.x && p.position.y === m.from.y
-        );
-        if (piece) {
-          const destination = new Position(m.to.x, m.to.y);
-          let enPassant = false;
-          if (
-            piece.isPawn &&
-            Math.abs(m.to.x - m.from.x) === 1 &&
-            m.to.y - m.from.y === (piece.team === TeamType.OUR ? 1 : -1) &&
-            !clonedBoard.pieces.some(
-              (p) => p.position.x === m.to.x && p.position.y === m.to.y
-            )
-          ) {
-            enPassant = true;
-          }
-
-          clonedBoard.playMove(enPassant, true, piece, destination);
-          if (m.promotion) {
-            const promotionType = symbolToPieceType(m.promotion);
-            if (promotionType) {
-              clonedBoard.pieces = clonedBoard.pieces.map((p) =>
-                p.position.x === m.to.x &&
-                p.position.y === m.to.y &&
-                p.team === piece.team
-                  ? new Piece(p.position.clone(), promotionType, p.team, true)
-                  : p
-              );
-            }
-          }
-          clonedBoard.totalTurns += 1;
-          clonedBoard.calculateAllMoves();
-        }
-      }
-      return clonedBoard;
-    });
+  const applyState = (state: { fen: string; moves: any[] }) => {
+    setBoard(() => parseFen(state.fen));
   };
 
   const handleError = (msg: any) => {
