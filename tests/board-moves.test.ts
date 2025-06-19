@@ -44,4 +44,16 @@ describe('Board move logic', () => {
     expect(king.hasMoved).toBe(true);
     expect(rook.hasMoved).toBe(true);
   });
+
+  test('king castling move listed at king destination square', () => {
+    const king = new Piece(new Position(4, 0), PieceType.KING, TeamType.OUR, false);
+    const rook = new Piece(new Position(7, 0), PieceType.ROOK, TeamType.OUR, false);
+    const blackKing = new Piece(new Position(4, 7), PieceType.KING, TeamType.OPPONENT, false);
+    const board = new Board([king, rook, blackKing], 1);
+    board.calculateAllMoves();
+
+    const whiteKing = board.pieces.find(p => p.isKing && p.team === TeamType.OUR)!;
+    const hasCastling = whiteKing.possibleMoves?.some(m => m.x === 6 && m.y === 0);
+    expect(hasCastling).toBe(true);
+  });
 });
