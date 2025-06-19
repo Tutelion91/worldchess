@@ -55,6 +55,17 @@ export function onMove(callback: (move: any) => void): () => void {
   });
 }
 
+// Exported: onGameOver
+export function onGameOver(
+  callback: (result: { winner: string | null; reason: string }) => void
+): () => void {
+  return onMessage((msg) => {
+    if (msg.type === "game-over") {
+      callback(msg.payload);
+    }
+  });
+}
+
 export function onState(callback: (state: any) => void): () => void {
   return onMessage((msg) => {
     if (msg.type === "state") {

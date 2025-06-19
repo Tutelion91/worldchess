@@ -6,6 +6,7 @@ interface ChessClockProps {
   currentTurn: TeamType;
   totalTurns: number;
   onTimeout: (winner: TeamType) => void;
+  gameOver?: boolean;
 }
 
 function parseTimeControl(tc: string): { base: number; inc: number } {
@@ -30,6 +31,7 @@ export default function ChessClock({
   currentTurn,
   totalTurns,
   onTimeout,
+  gameOver: gameOverProp,
 }: ChessClockProps) {
   const { base, inc } = parseTimeControl(timeControl);
   const [whiteTime, setWhiteTime] = useState(base + 5); // 5s bonus for white
@@ -40,6 +42,13 @@ export default function ChessClock({
   );
   const prevTurns = useRef(totalTurns);
   const incRef = useRef(inc);
+
+  // Stop the clock when the parent signals game over
+  useEffect(() => {
+    if (gameOverProp) {
+      setGameOver(true);
+    }
+  }, [gameOverProp]);
 
   useEffect(() => {
     if (gameOver) return;
@@ -71,7 +80,7 @@ export default function ChessClock({
       setBlackTime((t) => (active === 'black' ? Math.max(t - 1, 0) : t));
     }, 1000);
     return () => clearInterval(timer);
-  }, [active]);
+  }, [active, gameOver, totalTurns]);
 
   useEffect(() => {
     if (totalTurns === prevTurns.current) return;
