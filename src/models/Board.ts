@@ -162,7 +162,41 @@ export class Board {
       p.samePosition(destination)
     );
 
-    // If the move is a castling move do this
+    // Castling when the king moves two squares horizontally to an empty square
+    if (
+      playedPiece.isKing &&
+      !destinationPiece &&
+      Math.abs(destination.x - playedPiece.position.x) === 2 &&
+      destination.y === playedPiece.position.y
+    ) {
+      const direction = destination.x - playedPiece.position.x > 0 ? 1 : -1;
+      const rookStartX = direction === 1 ? 7 : 0;
+      const rook = this.pieces.find(
+        (p) =>
+          p.isRook &&
+          p.team === playedPiece.team &&
+          p.position.y === playedPiece.position.y &&
+          p.position.x === rookStartX
+      );
+      if (rook) {
+        this.pieces = this.pieces.map((p) => {
+          if (p.samePiecePosition(playedPiece)) {
+            p.position.x = destination.x;
+            p.hasMoved = true;
+          } else if (p.samePiecePosition(rook)) {
+            p.position.x = destination.x - direction;
+            p.hasMoved = true;
+          }
+
+          return p;
+        });
+
+        this.calculateAllMoves();
+        return true;
+      }
+    }
+
+    // Legacy castling detection when moving onto the rook
     if (
       playedPiece.isKing &&
       destinationPiece?.isRook &&
@@ -174,8 +208,10 @@ export class Board {
       this.pieces = this.pieces.map((p) => {
         if (p.samePiecePosition(playedPiece)) {
           p.position.x = newKingXPosition;
+          p.hasMoved = true;
         } else if (p.samePiecePosition(destinationPiece)) {
           p.position.x = newKingXPosition - direction;
+          p.hasMoved = true;
         }
 
         return p;
