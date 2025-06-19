@@ -76,7 +76,20 @@ useEffect(() => {
       );
 
       if (piece) {
-        clonedBoard.playMove(false, true, piece, new Position(move.to.x, move.to.y));
+        const destination = new Position(move.to.x, move.to.y);
+        let enPassant = false;
+        if (
+          piece.isPawn &&
+          Math.abs(move.to.x - move.from.x) === 1 &&
+          move.to.y - move.from.y === (piece.team === TeamType.OUR ? 1 : -1) &&
+          !clonedBoard.pieces.some(
+            (p) => p.position.x === move.to.x && p.position.y === move.to.y
+          )
+        ) {
+          enPassant = true;
+        }
+
+        clonedBoard.playMove(enPassant, true, piece, destination);
         if (move.promotion) {
           const promotionType = symbolToPieceType(move.promotion);
           if (promotionType) {
@@ -105,7 +118,20 @@ useEffect(() => {
           (p) => p.position.x === m.from.x && p.position.y === m.from.y
         );
         if (piece) {
-          clonedBoard.playMove(false, true, piece, new Position(m.to.x, m.to.y));
+          const destination = new Position(m.to.x, m.to.y);
+          let enPassant = false;
+          if (
+            piece.isPawn &&
+            Math.abs(m.to.x - m.from.x) === 1 &&
+            m.to.y - m.from.y === (piece.team === TeamType.OUR ? 1 : -1) &&
+            !clonedBoard.pieces.some(
+              (p) => p.position.x === m.to.x && p.position.y === m.to.y
+            )
+          ) {
+            enPassant = true;
+          }
+
+          clonedBoard.playMove(enPassant, true, piece, destination);
           if (m.promotion) {
             const promotionType = symbolToPieceType(m.promotion);
             if (promotionType) {
