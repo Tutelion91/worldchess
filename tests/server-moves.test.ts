@@ -2,6 +2,7 @@ import { Board } from '@/models/Board';
 import { Pawn } from '@/models/Pawn';
 import { Piece } from '@/models/Piece';
 import { Position } from '@/models/Position';
+import { isServerEnPassant } from "@/utils/serverMove";
 import { PieceType, TeamType } from '@/Types';
 
 describe('server move application', () => {
@@ -22,13 +23,7 @@ describe('server move application', () => {
     const piece = board.pieces.find(
       (p) => p.position.x === move.from.x && p.position.y === move.from.y
     )!;
-    const enPassant =
-      piece.isPawn &&
-      Math.abs(move.to.x - move.from.x) === 1 &&
-      move.to.y - move.from.y === (piece.team === TeamType.OUR ? 1 : -1) &&
-      !board.pieces.some(
-        (p) => p.position.x === move.to.x && p.position.y === move.to.y
-      );
+    const enPassant = isServerEnPassant(move, board);
 
     board.playMove(enPassant, true, piece, new Position(move.to.x, move.to.y));
 

@@ -22,6 +22,7 @@ import Chessboard from "../Chessboard/Chessboard";
 import { Howl } from "howler";
 import { sendMove, onMove, onState, onError, requestState } from "@/websocket";
 import { symbolToPieceType } from "@/utils/pieceSymbols";
+import { isServerEnPassant } from "@/utils/serverMove";
 import ChessClock from "../Clock/ChessClock";
 
 import { parseFen } from "@/utils/fen";
@@ -78,17 +79,7 @@ useEffect(() => {
 
       if (piece) {
         const destination = new Position(move.to.x, move.to.y);
-        let enPassant = false;
-        if (
-          piece.isPawn &&
-          Math.abs(move.to.x - move.from.x) === 1 &&
-          move.to.y - move.from.y === (piece.team === TeamType.OUR ? 1 : -1) &&
-          !clonedBoard.pieces.some(
-            (p) => p.position.x === move.to.x && p.position.y === move.to.y
-          )
-        ) {
-          enPassant = true;
-        }
+        const enPassant = isServerEnPassant(move, clonedBoard);
 
         clonedBoard.playMove(enPassant, true, piece, destination);
         if (move.promotion) {
