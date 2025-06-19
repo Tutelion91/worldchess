@@ -33,6 +33,7 @@ interface Game {
   timeControl: string;
   stake: number;
   started: boolean;
+  finished?: boolean;
   board: Chess;
   moves: Array<{
     from: { x: number; y: number };
@@ -140,6 +141,7 @@ wss.on("connection", (ws) => {
         stake,
         players: [ws],
         started: false,
+        finished: false,
         board: new Chess(),
         moves: [],
       };
@@ -202,6 +204,10 @@ wss.on("connection", (ws) => {
     if (data.type === "move") {
       const game = games[data.gameId];
       if (game) {
+        if (game.finished) {
+          ws.send(JSON.stringify({ type: "error", message: "Game already finished" }));
+          return;
+        }
         const playerColor = playerColors.get(ws);
         const turnColor = game.board.turn() === "w" ? "white" : "black";
         if (playerColor !== turnColor) {
@@ -251,6 +257,30 @@ wss.on("connection", (ws) => {
               );
             }
           });
+
+          if (game.board.isGameOver()) {
+            let winner: "white" | "black" | null = null;
+            let reason: "checkmate" | "stalemate" | "draw";
+            if (game.board.isCheckmate()) {
+              reason = "checkmate";
+              winner = game.board.turn() === "w" ? "black" : "white";
+            } else if (game.board.isStalemate()) {
+              reason = "stalemate";
+            } else {
+              reason = "draw";
+            }
+            game.finished = true;
+            game.players.forEach(player => {
+              if (player.readyState === WebSocket.OPEN) {
+                player.send(
+                  JSON.stringify({
+                    type: "game-over",
+                    payload: { winner, reason }
+                  })
+                );
+              }
+            });
+          }
         } else {
           ws.send(JSON.stringify({ type: "error", message: "Invalid move" }));
         }
