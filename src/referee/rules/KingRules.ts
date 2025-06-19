@@ -1,8 +1,31 @@
 import { Piece, Position } from "../../models";
 import { TeamType } from "../../Types";
-import { tileIsEmptyOrOccupiedByOpponent, tileIsOccupied, tileIsOccupiedByOpponent } from "./GeneralRules";
+import {
+  tileIsEmptyOrOccupiedByOpponent,
+  tileIsOccupied,
+  tileIsOccupiedByOpponent,
+} from "./GeneralRules";
 
 export const kingMove = (initialPosition: Position, desiredPosition: Position, team: TeamType, boardState: Piece[]): boolean => {
+  const deltaX = desiredPosition.x - initialPosition.x;
+  const deltaY = desiredPosition.y - initialPosition.y;
+
+  // Allow castling by moving the king two squares horizontally
+  if (deltaY === 0 && Math.abs(deltaX) === 2) {
+    const kingPiece = boardState.find(
+      (p) =>
+        p.isKing &&
+        p.team === team &&
+        p.position.samePosition(initialPosition)
+    );
+
+    if (
+      kingPiece?.possibleMoves?.some((m) => m.samePosition(desiredPosition))
+    ) {
+      return true;
+    }
+  }
+
   for (let i = 1; i < 2; i++) {
     //Diagonal
     let multiplierX = (desiredPosition.x < initialPosition.x) ? -1 : (desiredPosition.x > initialPosition.x) ? 1 : 0;
@@ -196,49 +219,53 @@ export const getCastlingMoves = (king: Piece, boardstate: Piece[]): Position[] =
   if (king.hasMoved) return possibleMoves;
 
   // We get the rooks from the king's team which haven't moved
-  const rooks = boardstate.filter(p => p.isRook
-    && p.team === king.team && !p.hasMoved);
+  const rooks = boardstate.filter(
+    (p) => p.isRook && p.team === king.team && !p.hasMoved
+  );
 
   // Loop through the rooks
   for (const rook of rooks) {
     // Determine if we need to go to the right or the left side
-    const direction = (rook.position.x - king.position.x > 0) ? 1 : -1;
+    const direction = rook.position.x - king.position.x > 0 ? 1 : -1;
 
-    const adjacentPosition = king.position.clone();
-    adjacentPosition.x += direction;
-
-    if(!rook.possibleMoves?.some(m => m.samePosition(adjacentPosition))) continue;
-
-    // We know that the rook can move to the adjacent side of the king
-
-    const conceringTiles = rook.possibleMoves.filter(m => m.y === king.position.y);
-
-    // Checking if any of the enemy pieces can attack the spaces between
-    // The rook and the king
-    const enemyPieces = boardstate.filter(p => p.team !== king.team);
-
-    let valid = true;
-
-    for(const enemy of enemyPieces) {
-      if(enemy.possibleMoves === undefined) continue;
-
-      for(const move of enemy.possibleMoves) {
-        if(conceringTiles.some(t => t.samePosition(move))) {
-          valid = false;
-        }
-
-        if(!valid)
-          break;
-      }
-
-      if(!valid)
-        break;
+    const tilesBetween: Position[] = [];
+    for (
+      let x = king.position.x + direction;
+      x !== rook.position.x;
+      x += direction
+    ) {
+      tilesBetween.push(new Position(x, king.position.y));
     }
 
-    if(!valid) continue;
+    // Ensure the squares between king and rook are empty
+    let valid = tilesBetween.every((t) => !tileIsOccupied(t, boardstate));
+    if (!valid) continue;
 
-    // We now want to add it as a possible move!
-    possibleMoves.push(rook.position.clone());
+    // The squares the king travels through (including destination)
+    const kingPath = tilesBetween.slice(0, 2); // at most two squares
+
+    // Checking if any of the enemy pieces can attack the spaces between
+    const enemyPieces = boardstate.filter((p) => p.team !== king.team);
+
+    for (const enemy of enemyPieces) {
+      if (enemy.possibleMoves === undefined) continue;
+
+      for (const move of enemy.possibleMoves) {
+        if (kingPath.some((t) => t.samePosition(move))) {
+          valid = false;
+          break;
+        }
+      }
+      if (!valid) break;
+    }
+
+    if (!valid) continue;
+
+    const finalPosition = new Position(
+      king.position.x + direction * 2,
+      king.position.y
+    );
+    possibleMoves.push(finalPosition);
   }
 
 
