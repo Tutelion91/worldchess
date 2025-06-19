@@ -42,6 +42,19 @@ npm test     # run the Jest suite
 
 Running `setup.sh` installs the dependencies automatically.
 
+## `game-over` WebSocket message
+
+When a game concludes the server sends a message of the form:
+
+```json
+{ "type": "game-over", "payload": { "winner": "white" | "black" | null, "reason": "checkmate" | "stalemate" | "draw" } }
+```
+
+The `winner` field is the winning color or `null` for draws. The `reason` can be
+`checkmate`, `stalemate` or `draw` (e.g. repetition or insufficient material).
+Upon receiving this message the client displays a modal indicating whether you
+won, lost or drew the game.
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:
