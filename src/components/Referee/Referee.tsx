@@ -123,6 +123,14 @@ useEffect(() => {
   };
 }, []);
 
+useEffect(() => {
+  if (board.winningTeam !== undefined) {
+    checkmateModalRef.current?.classList.remove("hidden");
+    stalemateModalRef.current?.classList.add("hidden");
+    checkmateSound.play();
+  }
+}, [board]);
+
 
   function playMove(playedPiece: Piece, destination: Position): boolean {
     // If the playing piece doesn't have any moves return
