@@ -200,6 +200,31 @@ wss.on("connection", (ws) => {
       }
     }
 
+    // Aufgabe eines Spielers
+    if (data.type === "resign") {
+      const game = games[data.gameId];
+      if (game) {
+        if (game.finished) {
+          ws.send(JSON.stringify({ type: "error", message: "Game already finished" }));
+          return;
+        }
+        const resigningColor = playerColors.get(ws);
+        const winner = resigningColor === "white" ? "black" : "white";
+        game.finished = true;
+        game.players.forEach(player => {
+          if (player.readyState === WebSocket.OPEN) {
+            player.send(
+              JSON.stringify({
+                type: "game-over",
+                payload: { winner, reason: "resignation" }
+              })
+            );
+          }
+        });
+      }
+      return;
+    }
+
     // Spielfiguren-Movement
     if (data.type === "move") {
       const game = games[data.gameId];
