@@ -15,8 +15,8 @@ if (!fs.existsSync(LOG_DIR)) {
   fs.mkdirSync(LOG_DIR);
 }
 
-function logMove(file: string, message: string) {
-  fs.appendFile(path.join(LOG_DIR, file), message + "\n", err => {
+function logMove(gameId: string, message: string) {
+  fs.appendFile(path.join(LOG_DIR, `${gameId}.log`), message + "\n", err => {
     if (err) {
       console.error("Failed to write log", err);
     }
@@ -145,6 +145,12 @@ wss.on("connection", (ws) => {
         board: new Chess(),
         moves: [],
       };
+      // Create log file for this game
+      try {
+        fs.writeFileSync(path.join(LOG_DIR, `${id}.log`), "");
+      } catch (err) {
+        console.error("Failed to create log file", err);
+      }
       ws.send(JSON.stringify({ type: "new-game-ack", gameId: id }));
       // Notify waiting-games
       wss.clients.forEach(client => {
@@ -252,11 +258,6 @@ wss.on("connection", (ws) => {
           return;
         }
 
-        // Log the move sent by the client
-        if (playerColor) {
-          logMove(`client_${playerColor}.log`, JSON.stringify({ from: fromAlg, to: toAlg, promotion }));
-        }
-
         if (move) {
           game.moves.push({
             from: algebraicToCoords(move.from),
@@ -264,15 +265,11 @@ wss.on("connection", (ws) => {
             promotion,
           });
 
-          // Log the move as processed by the server
-          logMove("server.log", JSON.stringify({ from: move.from, to: move.to, promotion }));
+          // Log the move for this game
+          logMove(game.id, JSON.stringify({ from: move.from, to: move.to, promotion }));
 
           game.players.forEach(player => {
             if (player.readyState === WebSocket.OPEN) {
-              const color = playerColors.get(player);
-              if (color) {
-                logMove(`client_${color}.log`, JSON.stringify({ from: move!.from, to: move!.to, promotion }));
-              }
               player.send(
                 JSON.stringify({
                   type: "state",
