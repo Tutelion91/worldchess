@@ -101,6 +101,10 @@ export function sendMove(move: { from: { x: number; y: number }; to: { x: number
   sendMessage({ type: "move", gameId: currentGameId, payload });
 }
 
+export function sendResign(gameId: string) {
+  sendMessage({ type: "resign", gameId });
+}
+
 export function requestState(gameId: string) {
   sendMessage({ type: "state-request", gameId });
 }

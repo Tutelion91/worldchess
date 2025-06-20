@@ -22,6 +22,7 @@ import Chessboard from "../Chessboard/Chessboard";
 import { Howl } from "howler";
 import {
   sendMove,
+  sendResign,
   onMove,
   onState,
   onError,
@@ -124,7 +125,7 @@ useEffect(() => {
   const handleGameOver = (result: { winner: string | null; reason: string }) => {
     setBoard((current) => {
       const clone = current.clone();
-      if (result.reason === "checkmate" && result.winner) {
+      if ((result.reason === "checkmate" || result.reason === "resignation") && result.winner) {
         clone.winningTeam = result.winner === "white" ? TeamType.OUR : TeamType.OPPONENT;
         clone.isStalemate = false;
       } else {
@@ -375,6 +376,14 @@ function isStalemate(board: Board, team: TeamType): boolean {
     setBoard(initialBoard.clone());
   }
 
+  function handleResign() {
+    if (typeof window === "undefined") return;
+    const confirmed = window.confirm("Aufgeben?");
+    if (confirmed) {
+      sendResign(initialGame.id);
+    }
+  }
+
   return (
     <>
       <p style={{ color: "white", fontSize: "24px", textAlign: "center" }}>
@@ -387,6 +396,7 @@ function isStalemate(board: Board, team: TeamType): boolean {
         onTimeout={handleTimeout}
         gameOver={gameOver}
       />
+      <button onClick={handleResign}>Aufgeben</button>
       <div className="modal hidden" ref={modalRef}>
         <div className="modal-body">
           <img
