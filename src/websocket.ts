@@ -129,6 +129,7 @@ export function onGamesList(callback: (games: any[]) => void): () => void {
   });
 }
 
+
 export function onDrawOffer(callback: () => void): () => void {
   return onMessage(msg => {
     if (msg.type === "draw-offer") {
@@ -144,4 +145,3 @@ export function onDrawDeclined(callback: () => void): () => void {
     }
   });
 }
-

@@ -69,7 +69,9 @@ app.get("/games", (req: Request, res: Response, next: NextFunction) => {
     "GET /games → Spieler pro Spiel:",
     Object.values(games).map(g => ({ id: g.id, playersCount: g.players.length }))
   );
-  const openGames = Object.values(games).filter(g => g.players.length < 2);
+  const openGames = Object.values(games).filter(
+    g => !g.started && g.players.length < 2
+  );
   res.json(openGames);
 });
 
@@ -135,7 +137,7 @@ wss.on("connection", (ws) => {
     // Aktuelle Liste offener Spiele anfordern
     if (data.type === "games-request") {
       const openGames = Object.values(games)
-        .filter(g => g.players.length < 2)
+        .filter(g => !g.started && g.players.length < 2)
         .map(g => ({ id: g.id, timeControl: g.timeControl, stake: g.stake }));
       ws.send(JSON.stringify({ type: "games-list", games: openGames }));
       return;
