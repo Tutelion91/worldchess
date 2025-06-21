@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { connectSocket, connectToGame, onMessage, requestState } from "@/websocket";
 import App from "../../../src/App";
 import { MiniKit, tokenToDecimals, Tokens, PayCommandInput } from "@worldcoin/minikit-js";
@@ -17,10 +17,20 @@ interface Game {
 
 export default function GamePage() {
   const { id } = useParams();
+  const router = useRouter();
   const [game, setGame] = useState<{ id: string; timeControl: string; stake: number; started: boolean; } | null>(null);
   const [playerColor, setPlayerColor] = useState<"white" | "black" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const paidRef = useRef(false);
+
+  const finishGame = () => {
+    setGame(null);
+    setPlayerColor(null);
+    try {
+      localStorage.removeItem("worldchess-color");
+    } catch {}
+    router.push("/");
+  };
 
   useEffect(() => {
     const stored = localStorage.getItem("worldchess-color");
@@ -111,6 +121,6 @@ export default function GamePage() {
   if (!game) return <p>Spiel wird geladen…</p>;
   if (!game.started || !playerColor) return <p>Warte auf Gegner…</p>;
 
-  return <App initialGame={game} playerColor={playerColor} />;
+  return <App initialGame={game} playerColor={playerColor} finishGame={finishGame} />;
 }
 

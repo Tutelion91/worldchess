@@ -48,6 +48,7 @@ interface RefereeProps {
     started: boolean;
   };
   playerColor: 'white' | 'black';
+  finishGame: () => void;
 }
 
 const moveSound = new Howl({
@@ -62,7 +63,7 @@ const checkmateSound = new Howl({
   src: ["/sounds/move-check.mp3"],
 });
 
-export default function Referee({ initialGame, playerColor }: RefereeProps) {
+export default function Referee({ initialGame, playerColor, finishGame }: RefereeProps) {
   const [board, setBoard] = useState<Board>(initialBoard.clone());
   const [promotionPawn, setPromotionPawn] = useState<Piece>();
   const [pendingPromotion, setPendingPromotion] = useState<{ from: Position; to: Position } | null>(null);
@@ -178,7 +179,7 @@ useEffect(() => {
       return clone;
     });
     setGameOver(true);
-    distributeWinnings(result.winner);
+    distributeWinnings(result.winner).finally(() => finishGame());
   };
 
   const unsubMove = onMove(applyMove);
