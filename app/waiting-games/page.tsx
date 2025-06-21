@@ -1,9 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
-import { connectSocket, onMessage } from "@/websocket";
+import { connectSocket, onMessage, requestGames } from "@/websocket";
 import Link from "next/link";
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
 type WaitingGame = { id: string; timeControl: string; stake: number; };
 
@@ -11,15 +9,14 @@ export default function WaitingGamesPage() {
   const [games, setGames] = useState<WaitingGame[]>([]);
 
   useEffect(() => {
-    // Initiale Liste via HTTP
-    fetch(`${API_URL}/games`)
-      .then(res => res.json())
-      .then((data: WaitingGame[]) => setGames(data))
-      .catch(console.error);
+    connectSocket();
+    requestGames();
 
     // WebSocket-Updates
-    connectSocket();
     const off = onMessage((msg) => {
+      if (msg.type === "games-list") {
+        setGames(msg.games as WaitingGame[]);
+      }
       if (msg.type === "new-game") {
         setGames(prev => [...prev, msg.payload]);
       }
