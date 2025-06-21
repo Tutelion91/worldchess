@@ -132,6 +132,15 @@ wss.on("connection", (ws) => {
       return;
     }
 
+    // Aktuelle Liste offener Spiele anfordern
+    if (data.type === "games-request") {
+      const openGames = Object.values(games)
+        .filter(g => g.players.length < 2)
+        .map(g => ({ id: g.id, timeControl: g.timeControl, stake: g.stake }));
+      ws.send(JSON.stringify({ type: "games-list", games: openGames }));
+      return;
+    }
+
     // Neues Spiel anlegen
     if (data.type === "new-game") {
       const { id, timeControl, stake } = data.payload;

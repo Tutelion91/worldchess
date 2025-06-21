@@ -109,3 +109,15 @@ export function requestState(gameId: string) {
   sendMessage({ type: "state-request", gameId });
 }
 
+export function requestGames() {
+  sendMessage({ type: "games-request" });
+}
+
+export function onGamesList(callback: (games: any[]) => void): () => void {
+  return onMessage(msg => {
+    if (msg.type === "games-list") {
+      callback(msg.games);
+    }
+  });
+}
+
