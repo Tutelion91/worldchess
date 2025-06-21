@@ -15,10 +15,34 @@ if (!fs.existsSync(LOG_DIR)) {
   fs.mkdirSync(LOG_DIR);
 }
 
+const RESULTS_LOG = path.join(LOG_DIR, "results.csv");
+if (!fs.existsSync(RESULTS_LOG)) {
+  fs.writeFileSync(
+    RESULTS_LOG,
+    "gameId,whitePlayer,blackPlayer,stake,result,timestamp\n"
+  );
+}
+
 function logMove(gameId: string, message: string) {
   fs.appendFile(path.join(LOG_DIR, `${gameId}.log`), message + "\n", err => {
     if (err) {
       console.error("Failed to write log", err);
+    }
+  });
+}
+
+function logGameResult(
+  gameId: string,
+  whitePlayer: string,
+  blackPlayer: string,
+  stake: number,
+  result: string
+) {
+  const timestamp = new Date().toISOString();
+  const row = `${gameId},${whitePlayer},${blackPlayer},${stake},${result},${timestamp}\n`;
+  fs.appendFile(RESULTS_LOG, row, err => {
+    if (err) {
+      console.error("Failed to log game result", err);
     }
   });
 }
@@ -238,6 +262,13 @@ wss.on("connection", (ws) => {
             );
           }
         });
+        logGameResult(
+          game.id,
+          "white",
+          "black",
+          game.stake,
+          `${winner} wins by resignation`
+        );
       }
       return;
     }
@@ -271,6 +302,13 @@ wss.on("connection", (ws) => {
               );
             }
           });
+          logGameResult(
+            game.id,
+            "white",
+            "black",
+            game.stake,
+            "draw accepted"
+          );
         } else {
           game.players.forEach(player => {
             if (player !== ws && player.readyState === WebSocket.OPEN) {
@@ -353,6 +391,17 @@ wss.on("connection", (ws) => {
                 );
               }
             });
+            const resultText =
+              winner !== null
+                ? `${winner} wins by ${reason}`
+                : reason;
+            logGameResult(
+              game.id,
+              "white",
+              "black",
+              game.stake,
+              resultText
+            );
           }
         } else {
           ws.send(JSON.stringify({ type: "error", message: "Invalid move" }));
