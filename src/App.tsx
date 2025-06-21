@@ -9,15 +9,16 @@ interface AppProps {
     started: boolean;
   };
   playerColor: 'white' | 'black';
+  finishGame: () => void;
 }
 
 
 
-export default function App({ initialGame, playerColor }: AppProps) {
+export default function App({ initialGame, playerColor, finishGame }: AppProps) {
   return (
     <div id="app">
       {/* Pass both game data and playerColor to your Referee */}
-      <Referee initialGame={initialGame} playerColor={playerColor} />
+      <Referee initialGame={initialGame} playerColor={playerColor} finishGame={finishGame} />
     </div>
   );
 }
