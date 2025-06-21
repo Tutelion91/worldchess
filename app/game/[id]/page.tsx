@@ -90,6 +90,11 @@ export default function GamePage() {
         if (!MiniKit.isInstalled()) continue;
 
         const { finalPayload } = await MiniKit.commandsAsync.pay(payload);
+        if (finalPayload.from) {
+          try {
+            localStorage.setItem("userAddress", finalPayload.from);
+          } catch {}
+        }
 
         await fetch('/api/confirm-payment', {
           method: 'POST',
