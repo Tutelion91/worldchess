@@ -23,11 +23,15 @@ import { Howl } from "howler";
 import {
   sendMove,
   sendResign,
+  sendOfferDraw,
+  respondDraw,
   onMove,
   onState,
   onError,
   onGameOver,
   requestState,
+  onDrawOffer,
+  onDrawDeclined,
 } from "@/websocket";
 import { symbolToPieceType } from "@/utils/pieceSymbols";
 import { isServerEnPassant } from "@/utils/serverMove";
@@ -141,12 +145,23 @@ useEffect(() => {
   const unsubState = onState(applyState);
   const unsubError = onError(handleError);
   const unsubGameOver = onGameOver(handleGameOver);
+  const unsubDrawOffer = onDrawOffer(() => {
+    if (typeof window === "undefined") return;
+    const accept = window.confirm("Do you want to accept a draw?");
+    respondDraw(initialGame.id, accept);
+  });
+  const unsubDrawDeclined = onDrawDeclined(() => {
+    if (typeof window === "undefined") return;
+    alert("Draw offer declined");
+  });
 
   return () => {
     unsubMove();
     unsubState();
     unsubError();
     unsubGameOver();
+    unsubDrawOffer();
+    unsubDrawDeclined();
   };
 }, []);
 
@@ -384,6 +399,14 @@ function isStalemate(board: Board, team: TeamType): boolean {
     }
   }
 
+  function handleOfferDraw() {
+    if (typeof window === "undefined") return;
+    const confirmed = window.confirm("Do you want to offer a draw?");
+    if (confirmed) {
+      sendOfferDraw(initialGame.id);
+    }
+  }
+
   return (
     <>
       <p style={{ color: "white", fontSize: "24px", textAlign: "center" }}>
@@ -397,6 +420,7 @@ function isStalemate(board: Board, team: TeamType): boolean {
         gameOver={gameOver}
       />
       <button onClick={handleResign}>Aufgeben</button>
+      <button onClick={handleOfferDraw}>Offer draw</button>
       <div className="modal hidden" ref={modalRef}>
         <div className="modal-body">
           <img

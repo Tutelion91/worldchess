@@ -242,6 +242,46 @@ wss.on("connection", (ws) => {
       return;
     }
 
+    // Draw offer from a player
+    if (data.type === "offer-draw") {
+      const game = games[data.gameId];
+      if (game && !game.finished) {
+        game.players.forEach(player => {
+          if (player !== ws && player.readyState === WebSocket.OPEN) {
+            player.send(JSON.stringify({ type: "draw-offer" }));
+          }
+        });
+      }
+      return;
+    }
+
+    // Response to a draw offer
+    if (data.type === "respond-draw") {
+      const game = games[data.gameId];
+      if (game && !game.finished) {
+        if (data.accept) {
+          game.finished = true;
+          game.players.forEach(player => {
+            if (player.readyState === WebSocket.OPEN) {
+              player.send(
+                JSON.stringify({
+                  type: "game-over",
+                  payload: { winner: null, reason: "draw" }
+                })
+              );
+            }
+          });
+        } else {
+          game.players.forEach(player => {
+            if (player !== ws && player.readyState === WebSocket.OPEN) {
+              player.send(JSON.stringify({ type: "draw-declined" }));
+            }
+          });
+        }
+      }
+      return;
+    }
+
     // Spielfiguren-Movement
     if (data.type === "move") {
       const game = games[data.gameId];
