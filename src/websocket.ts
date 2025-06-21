@@ -105,6 +105,14 @@ export function sendResign(gameId: string) {
   sendMessage({ type: "resign", gameId });
 }
 
+export function sendOfferDraw(gameId: string) {
+  sendMessage({ type: "offer-draw", gameId });
+}
+
+export function respondDraw(gameId: string, accept: boolean) {
+  sendMessage({ type: "respond-draw", gameId, accept });
+}
+
 export function requestState(gameId: string) {
   sendMessage({ type: "state-request", gameId });
 }
@@ -117,6 +125,22 @@ export function onGamesList(callback: (games: any[]) => void): () => void {
   return onMessage(msg => {
     if (msg.type === "games-list") {
       callback(msg.games);
+    }
+  });
+}
+
+export function onDrawOffer(callback: () => void): () => void {
+  return onMessage(msg => {
+    if (msg.type === "draw-offer") {
+      callback();
+    }
+  });
+}
+
+export function onDrawDeclined(callback: () => void): () => void {
+  return onMessage(msg => {
+    if (msg.type === "draw-declined") {
+      callback();
     }
   });
 }
