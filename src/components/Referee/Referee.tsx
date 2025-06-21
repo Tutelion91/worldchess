@@ -38,6 +38,7 @@ import { isServerEnPassant } from "@/utils/serverMove";
 import ChessClock from "../Clock/ChessClock";
 
 import { parseFen } from "@/utils/fen";
+import { MiniKit, tokenToDecimals, Tokens, PayCommandInput } from "@worldcoin/minikit-js";
 
 interface RefereeProps {
   initialGame: {
@@ -120,6 +121,44 @@ useEffect(() => {
     setBoard(() => parseFen(state.fen));
   };
 
+  const distributeWinnings = async (winner: string | null) => {
+    if (typeof window === "undefined") return;
+    const address = localStorage.getItem("userAddress");
+    if (!address) return;
+
+    const res = await fetch('/api/initiate-pay', { method: 'POST' });
+    const { id: reference } = await res.json();
+
+    let amount = initialGame.stake * 0.95;
+    if (winner && winner === playerColor) {
+      amount = initialGame.stake * 2 * 0.95;
+    } else if (winner) {
+      return; // loser sends nothing
+    }
+
+    const payload: PayCommandInput = {
+      reference,
+      to: address,
+      tokens: [
+        {
+          symbol: Tokens.WLD,
+          token_amount: tokenToDecimals(amount, Tokens.WLD).toString(),
+        },
+      ],
+      description: `Payout for game ${initialGame.id}`,
+    };
+
+    if (!MiniKit.isInstalled()) return;
+
+    const { finalPayload } = await MiniKit.commandsAsync.pay(payload);
+
+    await fetch('/api/confirm-payment', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(finalPayload),
+    });
+  };
+
   const handleError = (msg: any) => {
     // Refresh the board state in case we desynced
     requestState(initialGame.id);
@@ -139,6 +178,7 @@ useEffect(() => {
       return clone;
     });
     setGameOver(true);
+    distributeWinnings(result.winner);
   };
 
   const unsubMove = onMove(applyMove);
