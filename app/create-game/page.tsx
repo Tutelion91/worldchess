@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { connectSocket, sendMessage, onMessage } from "@/websocket";
+import { handleVerify } from "@/utils/verify";
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
@@ -24,7 +25,11 @@ export default function CreateGamePage() {
          };
   }, [router]);
 
-  const handleCreate = () => {
+  const handleCreate = async () => {
+    const verified = await handleVerify();
+    if (!verified) {
+      return;
+    }
     const newGame = {
       id: crypto.randomUUID(),
       timeControl,
