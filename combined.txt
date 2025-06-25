@@ -785,7 +785,7 @@ export default function GamePage() {
   useEffect(() => {
     connectSocket();
     // HTTP-Fallback
-    fetch(`http://localhost:3001/games/${id}`)
+    fetch(`http://localhost:3000/games/${id}`)
       .then(res => {
         if (!res.ok) throw new Error("Spiel nicht gefunden");
         return res.json();
