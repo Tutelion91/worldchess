@@ -1,5 +1,6 @@
-import './globals.css';
-import type { ReactNode } from 'react';
+import './globals.css'
+import type { ReactNode } from 'react'
+import { MiniKitProvider } from '@/components/MiniKitProvider'
 
 export const metadata = {
   title: 'Next.js',
@@ -14,7 +15,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="bg-blue-900 text-white min-h-screen">
-        {children}
+        <MiniKitProvider>{children}</MiniKitProvider>
       </body>
     </html>
   );
