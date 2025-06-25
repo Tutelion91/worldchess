@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { connectSocket, onMessage, requestGames } from "@/websocket";
+import { handleVerify } from "@/utils/verify";
 import Link from "next/link";
 
 type WaitingGame = { id: string; timeControl: string; stake: number; };
@@ -27,7 +28,12 @@ export default function WaitingGamesPage() {
     return () => off();
   }, []);
 
-  const handleJoin = (g: WaitingGame) => window.location.href = `/waiting-room/${g.id}`;
+  const handleJoin = async (g: WaitingGame) => {
+    const verified = await handleVerify();
+    if (verified) {
+      window.location.href = `/waiting-room/${g.id}`;
+    }
+  };
 
   return (
     <div className="min-h-screen bg-blue-900 text-white p-8 flex flex-col items-center space-y-4">
