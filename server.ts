@@ -4,10 +4,13 @@ import { WebSocketServer, WebSocket } from "ws";
 import { Chess } from "chess.js";
 import fs from "fs";
 import path from "path";
+import http from "http";
+import next from "next";
 
-const app = express();
-const HTTP_PORT = 3001;
-const WS_PORT = 8080;
+const PORT = parseInt(process.env.PORT || "3000", 10);
+const dev = process.env.NODE_ENV !== "production";
+const nextApp = next({ dev });
+const handle = nextApp.getRequestHandler();
 
 // Set up logging
 const LOG_DIR = path.join(__dirname, "logs");
@@ -47,8 +50,10 @@ function logGameResult(
   });
 }
 
-app.use(cors());
-app.use(express.json());
+nextApp.prepare().then(() => {
+  const app = express();
+  app.use(cors());
+  app.use(express.json());
 
 // In-Memory Speicher für offene Spiele
 interface Game {
@@ -115,16 +120,21 @@ app.get("/games/:id", (req: Request, res: Response, next: NextFunction) => {
   });
 });
 
-// HTTP-Server starten
-app.listen(HTTP_PORT, () => {
-  console.log(`HTTP Server läuft auf http://localhost:${HTTP_PORT}`);
-});
+  // Create HTTP and WebSocket servers on the same port
+  const server = http.createServer(app);
+  const wss = new WebSocketServer({ server });
 
-// WebSocket-Server
-const wss = new WebSocketServer({ port: WS_PORT });
-console.log(`WebSocket Server läuft auf ws://localhost:${WS_PORT}`);
+  server.listen(PORT, () => {
+    console.log(`Server läuft auf http://localhost:${PORT}`);
+  });
+  console.log(`WebSocket Server läuft auf ws://localhost:${PORT}`);
 
-wss.on("connection", (ws) => {
+  // Express 5 no longer supports the '*' path in app.all().
+  // Using app.use() without a path delegates all remaining
+  // requests to the Next.js request handler.
+  app.use((req, res) => handle(req, res));
+
+  wss.on("connection", (ws) => {
   console.log("WebSocket: Ein Client verbunden");
 
   ws.on("message", (message) => {
@@ -430,5 +440,7 @@ wss.on("connection", (ws) => {
       }
     }
   });
+});
+
 });
 
