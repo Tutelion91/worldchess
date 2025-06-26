@@ -3,7 +3,7 @@ import { verifyCloudProof, IVerifyResponse, ISuccessResult } from '@worldcoin/mi
 
 interface IRequestPayload {
   payload: ISuccessResult
-  action: string
+  action: app_443f4d7716899498942ae3a5e61ce369
   signal: string | undefined
 }
 

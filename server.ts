@@ -129,14 +129,13 @@ app.get("/games/:id", (req: Request, res: Response, next: NextFunction) => {
   });
   console.log(`WebSocket Server läuft auf ws://localhost:${PORT}`);
 
-<<<<<<< codex/portanpassung-auf-3000-für-wld
+
   // Express 5 no longer supports the '*' path in app.all().
   // Using app.use() without a path delegates all remaining
   // requests to the Next.js request handler.
   app.use((req, res) => handle(req, res));
-=======
-  app.all("*", (req, res) => handle(req, res));
->>>>>>> main
+  //app.all("*", (req, res) => handle(req, res));
+
 
   wss.on("connection", (ws) => {
   console.log("WebSocket: Ein Client verbunden");
