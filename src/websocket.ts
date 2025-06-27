@@ -1,6 +1,6 @@
 let socket: WebSocket | null = null;
 let currentGameId: string | null = null;
-const WS_URL = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:3000";
+const WS_URL = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:3000/ws";
 
 export function connectSocket() {
   if (!socket || socket.readyState === WebSocket.CLOSED) {

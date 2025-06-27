@@ -24,7 +24,7 @@ The file defines the following variables used by the client:
 
 ```env
 NEXT_PUBLIC_API_URL=http://localhost:3000
-NEXT_PUBLIC_WS_URL=ws://localhost:3000
+NEXT_PUBLIC_WS_URL=ws://localhost:3000/ws
 ```
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.

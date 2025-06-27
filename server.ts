@@ -122,7 +122,19 @@ app.get("/games/:id", (req: Request, res: Response, next: NextFunction) => {
 
   // Create HTTP and WebSocket servers on the same port
   const server = http.createServer(app);
-  const wss = new WebSocketServer({ server });
+  const wss = new WebSocketServer({ noServer: true });
+  const upgrade = nextApp.getUpgradeHandler();
+
+  server.on('upgrade', (req, socket, head) => {
+    const { pathname } = new URL(req.url || '', `http://${req.headers.host}`);
+    if (pathname === '/ws') {
+      wss.handleUpgrade(req, socket, head, ws => {
+        wss.emit('connection', ws, req);
+      });
+    } else {
+      upgrade(req, socket, head);
+    }
+  });
 
   server.listen(PORT, () => {
     console.log(`Server läuft auf http://localhost:${PORT}`);
