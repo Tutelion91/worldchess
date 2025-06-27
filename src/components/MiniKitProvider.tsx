@@ -8,7 +8,7 @@ export const MiniKitProvider = ({ children }: { children: ReactNode }) => {
     MiniKit.install()
 
     const verifyPayload: VerifyCommandInput = {
-      action: 'voting-action',
+      action: 'verify',
       signal: '0x12312',
       verification_level: VerificationLevel.Orb,
     }
