@@ -33,8 +33,25 @@ export const MiniKitProvider = ({ children }: { children: ReactNode }) => {
           signal: verifyPayload.signal,
         }),
       })
-      const verifyResponseJson = await verifyResponse.json()
-      if (verifyResponseJson.status === 200) {
+
+      // The API can fail in development which results in an empty body. Guard
+      // against JSON parsing errors to avoid crashing the client.
+      let verifyResponseJson: any = null
+      const contentType = verifyResponse.headers.get('content-type') || ''
+      if (contentType.includes('application/json')) {
+        try {
+          verifyResponseJson = await verifyResponse.json()
+        } catch (err) {
+          console.error('Failed to parse verification response', err)
+        }
+      } else {
+        console.error(
+          'Verification endpoint did not return JSON:',
+          await verifyResponse.text()
+        )
+      }
+
+      if (verifyResponseJson?.status === 200) {
         console.log('Verification success!')
       }
     }

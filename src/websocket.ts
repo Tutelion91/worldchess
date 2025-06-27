@@ -1,10 +1,20 @@
 let socket: WebSocket | null = null;
 let currentGameId: string | null = null;
-const WS_URL = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:3000/ws";
+
+function getWebSocketUrl() {
+  if (process.env.NEXT_PUBLIC_WS_URL) {
+    return process.env.NEXT_PUBLIC_WS_URL;
+  }
+  if (typeof window !== "undefined") {
+    const proto = window.location.protocol === "https:" ? "wss" : "ws";
+    return `${proto}://${window.location.host}/ws`;
+  }
+  return "ws://localhost:3000/ws";
+}
 
 export function connectSocket() {
   if (!socket || socket.readyState === WebSocket.CLOSED) {
-    socket = new WebSocket(WS_URL);
+    socket = new WebSocket(getWebSocketUrl());
     console.log("Connecting to WebSocket...");
     socket.onopen = () => {
       console.log("[WebSocket] verbunden");
