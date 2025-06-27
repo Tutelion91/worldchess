@@ -7,6 +7,11 @@ export const MiniKitProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     MiniKit.install()
 
+    // Skip verification if we already stored a successful result.
+    if (typeof window !== 'undefined' && localStorage.getItem('worldIdVerified') === 'true') {
+      return
+    }
+
     const verifyPayload: VerifyCommandInput = {
       action: 'verify',
       signal: '0x12312',
@@ -53,6 +58,13 @@ export const MiniKitProvider = ({ children }: { children: ReactNode }) => {
 
       if (verifyResponseJson?.status === 200) {
         console.log('Verification success!')
+        try {
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('worldIdVerified', 'true')
+          }
+        } catch (err) {
+          console.error('Failed to store verification flag', err)
+        }
       }
     }
 

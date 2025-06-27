@@ -2,8 +2,20 @@ let socket: WebSocket | null = null;
 let currentGameId: string | null = null;
 
 function getWebSocketUrl() {
-  if (process.env.NEXT_PUBLIC_WS_URL) {
-    return process.env.NEXT_PUBLIC_WS_URL;
+  const envUrl = process.env.NEXT_PUBLIC_WS_URL;
+  if (envUrl) {
+    if (typeof window !== "undefined") {
+      try {
+        const url = new URL(envUrl);
+        if (window.location.protocol === "https:" && url.protocol === "ws:") {
+          url.protocol = "wss:";
+          return url.toString();
+        }
+      } catch (err) {
+        console.error("Invalid WebSocket URL in NEXT_PUBLIC_WS_URL", envUrl, err);
+      }
+    }
+    return envUrl;
   }
   if (typeof window !== "undefined") {
     const proto = window.location.protocol === "https:" ? "wss" : "ws";
