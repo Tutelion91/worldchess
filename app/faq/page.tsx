@@ -40,6 +40,7 @@ export default function FAQPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(finalPayload),
       });
+
       localStorage.setItem(doneKey, 'true');
     };
 
