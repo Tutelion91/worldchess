@@ -115,6 +115,9 @@ export default function GamePage() {
       if (typeof window !== "undefined") {
         localStorage.setItem(key, 'true');
       }
+      if (typeof window !== "undefined") {
+        localStorage.setItem(key, 'true');
+      }
     };
 
     payStake();
