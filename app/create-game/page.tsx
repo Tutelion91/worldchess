@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { connectSocket, sendMessage, onMessage } from "@/websocket";
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { MiniKit, tokenToDecimals, Tokens, PayCommandInput } from "@worldcoin/minikit-js";
 
 export default function CreateGamePage() {
   const [timeControl, setTimeControl] = useState("15+10");
@@ -24,7 +25,7 @@ export default function CreateGamePage() {
          };
   }, [router]);
 
-  const handleCreate = () => {
+  const handleCreate = async () => {
     const newGame = {
       id: crypto.randomUUID(),
       timeControl,
@@ -36,6 +37,45 @@ export default function CreateGamePage() {
     // optional: localStorage
     const existing = JSON.parse(localStorage.getItem("waitingGames") || "[]");
     localStorage.setItem("waitingGames", JSON.stringify([...existing, newGame]));
+
+    const payStake = async () => {
+      const key = `stakePaid-${newGame.id}`;
+      if (typeof window === "undefined" || localStorage.getItem(key)) return;
+      for (let i = 0; i < 2; i++) {
+        const res = await fetch('/api/initiate-pay', { method: 'POST' });
+        const { id: reference } = await res.json();
+
+        const payload: PayCommandInput = {
+          reference,
+          to: '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045',
+          tokens: [
+            {
+              symbol: Tokens.WLD,
+              token_amount: tokenToDecimals(newGame.stake, Tokens.WLD).toString(),
+            },
+          ],
+          description: `Stake payment for game ${newGame.id}`,
+        };
+
+        if (!MiniKit.isInstalled()) continue;
+
+        const { finalPayload } = await MiniKit.commandsAsync.pay(payload);
+        if ('from' in finalPayload && finalPayload.from) {
+          try {
+            localStorage.setItem("userAddress", finalPayload.from);
+          } catch {}
+        }
+
+        await fetch('/api/confirm-payment', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(finalPayload),
+        });
+      }
+      localStorage.setItem(key, 'true');
+    };
+
+    await payStake();
 
     // A2) WS‑Nachricht senden
     console.log("[create-game] sende WS new-game");

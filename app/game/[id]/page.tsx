@@ -79,6 +79,8 @@ export default function GamePage() {
   useEffect(() => {
     const payStake = async () => {
       if (!game || paidRef.current || game.stake === 0) return;
+      const key = `stakePaid-${game.id}`;
+      if (typeof window !== "undefined" && localStorage.getItem(key)) return;
       paidRef.current = true;
 
       for (let i = 0; i < 2; i++) {
@@ -100,7 +102,7 @@ export default function GamePage() {
         if (!MiniKit.isInstalled()) continue;
 
         const { finalPayload } = await MiniKit.commandsAsync.pay(payload);
-        if (finalPayload.from) {
+        if ('from' in finalPayload && finalPayload.from) {
           try {
             localStorage.setItem("userAddress", finalPayload.from);
           } catch {}
@@ -111,6 +113,9 @@ export default function GamePage() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(finalPayload),
         });
+      }
+      if (typeof window !== "undefined") {
+        localStorage.setItem(key, 'true');
       }
     };
 
