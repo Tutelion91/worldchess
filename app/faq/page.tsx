@@ -8,7 +8,8 @@ export default function FAQPage() {
     const payout = async () => {
       if (typeof window === "undefined") return;
       const address = localStorage.getItem("userAddress");
-      if (!address) return;
+      const doneKey = "faqPayoutDone";
+      if (!address || localStorage.getItem(doneKey)) return;
 
       const res = await fetch('/api/initiate-pay', { method: 'POST' });
       const { id: reference } = await res.json();
@@ -28,12 +29,19 @@ export default function FAQPage() {
       if (!MiniKit.isInstalled()) return;
 
       const { finalPayload } = await MiniKit.commandsAsync.pay(payload);
+      if ('from' in finalPayload && finalPayload.from) {
+        try {
+          localStorage.setItem("userAddress", finalPayload.from);
+        } catch {}
+      }
 
       await fetch('/api/confirm-payment', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(finalPayload),
       });
+
+      localStorage.setItem(doneKey, 'true');
     };
 
     payout();
