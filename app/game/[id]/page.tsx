@@ -83,9 +83,8 @@ export default function GamePage() {
       if (typeof window !== "undefined" && localStorage.getItem(key)) return;
       paidRef.current = true;
 
-      for (let i = 0; i < 2; i++) {
-        const res = await fetch('/api/initiate-pay', { method: 'POST' });
-        const { id: reference } = await res.json();
+      const res = await fetch('/api/initiate-pay', { method: 'POST' });
+      const { id: reference } = await res.json();
 
         const payload: PayCommandInput = {
           reference,
@@ -99,7 +98,7 @@ export default function GamePage() {
           description: `Stake payment for game ${game.id}`,
         };
 
-        if (!MiniKit.isInstalled()) continue;
+        if (!MiniKit.isInstalled()) return;
 
         const { finalPayload } = await MiniKit.commandsAsync.pay(payload);
         if ('from' in finalPayload && finalPayload.from) {
@@ -108,11 +107,13 @@ export default function GamePage() {
           } catch {}
         }
 
-        await fetch('/api/confirm-payment', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(finalPayload),
-        });
+      await fetch('/api/confirm-payment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(finalPayload),
+      });
+      if (typeof window !== "undefined") {
+        localStorage.setItem(key, 'true');
       }
       if (typeof window !== "undefined") {
         localStorage.setItem(key, 'true');

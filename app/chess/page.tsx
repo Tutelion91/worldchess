@@ -12,9 +12,10 @@ const dummyGame = {
 };
 
 export default function Page() {
+  const finishGame = () => {};
   return (
     <main className="flex min-h-screen flex-col items-center justify-center p-4">
-      <ChessGame initialGame={dummyGame} playerColor="white" />
+      <ChessGame initialGame={dummyGame} playerColor="white" finishGame={finishGame} />
     </main>
   );
 }
