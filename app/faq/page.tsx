@@ -14,6 +14,7 @@ export default function FAQPage() {
       const res = await fetch('/api/initiate-pay', { method: 'POST' });
       const { id: paymentId } = await res.json();
 
+
       const path = `/pay?paymentId=${paymentId}&recipient=${address}&amount=0.1`;
       const encodedPath = encodeURIComponent(path);
       const url = `https://worldcoin.org/mini-app?app_id=app_d9589ab005e18dcf362d2ea26aef669e&path=${encodedPath}`;
