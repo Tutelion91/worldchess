@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useEffect } from "react";
-import { MiniKit, tokenToDecimals, Tokens, PayCommandInput } from "@worldcoin/minikit-js";
+
 
 export default function FAQPage() {
   useEffect(() => {
@@ -12,35 +12,13 @@ export default function FAQPage() {
       if (!address || localStorage.getItem(doneKey)) return;
 
       const res = await fetch('/api/initiate-pay', { method: 'POST' });
-      const { id: reference } = await res.json();
+      const { id: paymentId } = await res.json();
 
-      const payload: PayCommandInput = {
-        reference,
-        to: address,
-        tokens: [
-          {
-            symbol: Tokens.WLD,
-            token_amount: tokenToDecimals(0.1, Tokens.WLD).toString(),
-          },
-        ],
-        description: 'FAQ payout',
-      };
+      const path = `/pay?paymentId=${paymentId}&recipient=${address}&amount=0.1`;
+      const encodedPath = encodeURIComponent(path);
+      const url = `https://worldcoin.org/mini-app?app_id=app_d9589ab005e18dcf362d2ea26aef669e&path=${encodedPath}`;
 
-      if (!MiniKit.isInstalled()) return;
-
-      const { finalPayload } = await MiniKit.commandsAsync.pay(payload);
-      if ('from' in finalPayload && finalPayload.from) {
-        try {
-          localStorage.setItem("userAddress", finalPayload.from);
-        } catch {}
-      }
-
-      await fetch('/api/confirm-payment', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(finalPayload),
-      });
-
+      window.location.href = url;
       localStorage.setItem(doneKey, 'true');
     };
 
