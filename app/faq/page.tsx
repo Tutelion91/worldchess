@@ -18,8 +18,10 @@ export default function FAQPage() {
       const encodedPath = encodeURIComponent(path);
       const url = `https://worldcoin.org/mini-app?app_id=app_d9589ab005e18dcf362d2ea26aef669e&path=${encodedPath}`;
 
+
       window.location.href = url;
       localStorage.setItem(doneKey, 'true');
+      window.location.href = url.toString();
     };
 
     payout();
