@@ -2,7 +2,8 @@
 
 import { useEffect } from "react"
 import Link from "next/link"
-import { MiniKit } from "@worldcoin/minikit"
+import { MiniKit } from "@worldcoin/minikit-js"
+
 
 export default function FAQPage() {
   useEffect(() => {
