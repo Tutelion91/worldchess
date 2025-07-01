@@ -33,6 +33,7 @@ export default function FAQPage() {
   useEffect(() => {
     const fetchAddress = async () => {
       try {
+
         if (MiniKit.walletAddress) {
           setUserAddress(MiniKit.walletAddress)
           return
