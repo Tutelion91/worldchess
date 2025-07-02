@@ -11,25 +11,45 @@ export async function POST(req: NextRequest) {
   const { payload, action, signal } = (await req.json()) as IRequestPayload
   const appId = process.env.APP_ID as `app_${string}` | undefined
 
+  console.log("APP_ID:", appId)
+  console.log("Payload:", payload)
+  console.log("Action:", action)
+  console.log("Signal:", signal)
+
   if (!appId) {
-    return NextResponse.json({ error: 'APP_ID not configured', status: 500 })
+    console.error('APP_ID not configured')
+    return NextResponse.json({ error: 'APP_ID not configured' }, { status: 500 })
   }
 
   try {
     const verifyRes = (await verifyCloudProof(payload, appId, action, signal)) as IVerifyResponse
+    console.log("verifyRes:", verifyRes)
 
     if (verifyRes.success) {
-      // This is where you should perform backend actions if the verification succeeds
-      // Such as, setting a user as "verified" in a database
-      return NextResponse.json({ verifyRes, status: 200 })
-    } else {
-      // This is where you should handle errors from the World ID /verify endpoint.
-      // Usually these errors are due to a user having already verified.
-      return NextResponse.json({ verifyRes, status: 400 })
-    }
+  return NextResponse.json(
+    {
+      success: true,
+      nullifier_hash  // falls du das brauchst
+    },
+    { status: 200 }
+  )
+} else {
+  return NextResponse.json(
+    {
+      success: false,
+      code: verifyRes.code,           // z. B. "already_verified"
+    },
+    { status: 400 }
+  )
+}
+
   } catch (err: any) {
-    console.error('Verification failed:', err)
-    return NextResponse.json({ error: 'Verification failed', status: 500 })
-  }
+  console.error('Verification failed:', err)
+  return NextResponse.json(
+    { success: false, error: err.message || 'Verification failed' },
+    { status: 500 }
+  )
+}
+
 }
 

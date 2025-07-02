@@ -7,7 +7,6 @@ export const MiniKitProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     MiniKit.install()
 
-    // Skip verification if we already stored a successful result.
     if (typeof window !== 'undefined' && localStorage.getItem('worldIdVerified') === 'true') {
       return
     }
@@ -22,7 +21,9 @@ export const MiniKitProvider = ({ children }: { children: ReactNode }) => {
       if (!MiniKit.isInstalled()) {
         return
       }
+
       const { finalPayload } = await MiniKit.commandsAsync.verify(verifyPayload)
+
       if ((finalPayload as any).status === 'error') {
         return console.log('Error payload', finalPayload)
       }
@@ -39,32 +40,14 @@ export const MiniKitProvider = ({ children }: { children: ReactNode }) => {
         }),
       })
 
-      // The API can fail in development which results in an empty body. Guard
-      // against JSON parsing errors to avoid crashing the client.
-      let verifyResponseJson: any = null
-      const contentType = verifyResponse.headers.get('content-type') || ''
-      if (contentType.includes('application/json')) {
-        try {
-          verifyResponseJson = await verifyResponse.json()
-        } catch (err) {
-          console.error('Failed to parse verification response', err)
+      if (verifyResponse.ok) { // <-- Prüfe direkt den HTTP-Status
+        console.log('Verification success!')
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('worldIdVerified', 'true')
         }
       } else {
-        console.error(
-          'Verification endpoint did not return JSON:',
-          await verifyResponse.text()
-        )
-      }
-
-      if (verifyResponseJson?.status === 200) {
-        console.log('Verification success!')
-        try {
-          if (typeof window !== 'undefined') {
-            localStorage.setItem('worldIdVerified', 'true')
-          }
-        } catch (err) {
-          console.error('Failed to store verification flag', err)
-        }
+        const errorText = await verifyResponse.text()
+        console.error('Verification failed:', verifyResponse.status, errorText)
       }
     }
 
@@ -73,3 +56,4 @@ export const MiniKitProvider = ({ children }: { children: ReactNode }) => {
 
   return <>{children}</>
 }
+
