@@ -26,22 +26,22 @@ export async function POST(req: NextRequest) {
     console.log("verifyRes:", verifyRes)
 
     if (verifyRes.success) {
-  return NextResponse.json(
-    {
-      success: true,
-      nullifier_hash  // falls du das brauchst
-    },
-    { status: 200 }
-  )
-} else {
-  return NextResponse.json(
-    {
-      success: false,
-      code: verifyRes.code,           // z. B. "already_verified"
-    },
-    { status: 400 }
-  )
-}
+      return NextResponse.json(
+        {
+          success: true,
+          nullifier_hash: payload.nullifier_hash,
+        },
+        { status: 200 }
+      )
+    } else {
+      return NextResponse.json(
+        {
+          success: false,
+          code: verifyRes.code,
+        },
+        { status: 400 }
+      )
+    }
 
   } catch (err: any) {
   console.error('Verification failed:', err)
