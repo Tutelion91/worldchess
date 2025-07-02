@@ -44,3 +44,6 @@ logs/
 !logs/.gitkeep
 
 .env
+
+# compiled API routes
+app/api/**/*.js
