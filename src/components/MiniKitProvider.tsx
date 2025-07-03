@@ -1,10 +1,13 @@
 'use client'
 
-import { useEffect, ReactNode } from 'react'
+import { useEffect, ReactNode, useRef } from 'react'
 import { MiniKit, VerifyCommandInput, VerificationLevel, ISuccessResult } from '@worldcoin/minikit-js'
 
 export const MiniKitProvider = ({ children }: { children: ReactNode }) => {
+  const hasRunRef = useRef(false)
   useEffect(() => {
+    if (hasRunRef.current) return
+    hasRunRef.current = true
     MiniKit.install()
 
     if (typeof window !== 'undefined' && localStorage.getItem('worldIdVerified') === 'true') {
@@ -42,6 +45,14 @@ export const MiniKitProvider = ({ children }: { children: ReactNode }) => {
 
       if (verifyResponse.ok) { // <-- Prüfe direkt den HTTP-Status
         console.log('Verification success!')
+        try {
+          const { finalPayload: walletPayload } = await MiniKit.commandsAsync.walletAuth({ nonce: crypto.randomUUID() })
+          if ((walletPayload as any).status === 'success' && (walletPayload as any).address) {
+            localStorage.setItem('userAddress', (walletPayload as any).address)
+          }
+        } catch (err) {
+          console.error('Wallet auth failed', err)
+        }
         if (typeof window !== 'undefined') {
           localStorage.setItem('worldIdVerified', 'true')
         }
