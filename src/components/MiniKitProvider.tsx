@@ -8,10 +8,8 @@ let verificationStarted = false
 export const MiniKitProvider = ({ children }: { children: ReactNode }) => {
   const hasRunRef = useRef(false)
   useEffect(() => {
-
     if (verificationStarted) return
     verificationStarted = true
-
     MiniKit.install()
 
     if (typeof window !== 'undefined' && localStorage.getItem('worldIdVerified') === 'true') {
