@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         {
           success: true,
-          nullifier_hash: payload.nullifier_hash,
+          //nullifier_hash: payload.nullifier_hash,
         },
         { status: 200 }
       )
