@@ -3,15 +3,11 @@
 import { useEffect, ReactNode, useRef } from 'react'
 import { MiniKit, VerifyCommandInput, VerificationLevel, ISuccessResult } from '@worldcoin/minikit-js'
 
-let verificationStarted = false
-
 export const MiniKitProvider = ({ children }: { children: ReactNode }) => {
-  const initializedRef = useRef(false)
-
+  const hasRunRef = useRef(false)
   useEffect(() => {
-    if (initializedRef.current) return
-    initializedRef.current = true
-
+    if (hasRunRef.current) return
+    hasRunRef.current = true
     MiniKit.install()
 
     if (typeof window !== 'undefined' && localStorage.getItem('worldIdVerified') === 'true') {
@@ -47,10 +43,7 @@ export const MiniKitProvider = ({ children }: { children: ReactNode }) => {
         }),
       })
 
-      const resJson = await verifyResponse.json().catch(() => ({} as any))
-
-
-      if (verifyResponse.ok || resJson.code === 'max_verifications_reached') {
+      if (verifyResponse.ok) { // <-- Prüfe direkt den HTTP-Status
         console.log('Verification success!')
         try {
           const { finalPayload: walletPayload } = await MiniKit.commandsAsync.walletAuth({ nonce: crypto.randomUUID() })
@@ -64,7 +57,8 @@ export const MiniKitProvider = ({ children }: { children: ReactNode }) => {
           localStorage.setItem('worldIdVerified', 'true')
         }
       } else {
-        console.error('Verification failed:', verifyResponse.status, resJson)
+        const errorText = await verifyResponse.text()
+        console.error('Verification failed:', verifyResponse.status, errorText)
       }
     }
 

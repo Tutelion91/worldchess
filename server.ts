@@ -53,7 +53,7 @@ function logGameResult(
 nextApp.prepare().then(() => {
   const app = express();
   app.use(cors());
-  //app.use(express.json());
+  app.use(express.json());
 
 // In-Memory Speicher für offene Spiele
 interface Game {
