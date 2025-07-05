@@ -35,7 +35,10 @@ export default function FAQPage() {
     const fetchAddress = async () => {
       try {
 
-        if (typeof window !== 'undefined' && localStorage.getItem('worldIdVerified') === 'true') {
+        if (
+          typeof window !== 'undefined' &&
+          localStorage.getItem('worldIdVerified') === 'true'
+        ) {
           setIsVerified(true)
         }
 

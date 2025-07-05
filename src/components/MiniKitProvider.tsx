@@ -6,10 +6,12 @@ import { MiniKit, VerifyCommandInput, VerificationLevel, ISuccessResult } from '
 let verificationStarted = false
 
 export const MiniKitProvider = ({ children }: { children: ReactNode }) => {
-  const hasRunRef = useRef(false)
+  const initializedRef = useRef(false)
+
   useEffect(() => {
-    if (verificationStarted) return
-    verificationStarted = true
+    if (initializedRef.current) return
+    initializedRef.current = true
+
     MiniKit.install()
 
     if (typeof window !== 'undefined' && localStorage.getItem('worldIdVerified') === 'true') {
@@ -45,7 +47,8 @@ export const MiniKitProvider = ({ children }: { children: ReactNode }) => {
         }),
       })
 
-      const resJson = await verifyResponse.json().catch(() => ({}))
+      const resJson = await verifyResponse.json().catch(() => ({} as any))
+
 
       if (verifyResponse.ok || resJson.code === 'max_verifications_reached') {
         console.log('Verification success!')
