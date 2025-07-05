@@ -44,6 +44,7 @@ export const MiniKitProvider = ({ children }: { children: ReactNode }) => {
       })
 
       if (verifyResponse.ok) { // <-- Prüfe direkt den HTTP-Status
+
         console.log('Verification success!')
         try {
           const { finalPayload: walletPayload } = await MiniKit.commandsAsync.walletAuth({ nonce: crypto.randomUUID() })
