@@ -29,10 +29,18 @@ async function payoutUser(address: string) {
 export default function FAQPage() {
   const [userAddress, setUserAddress] = useState<string | null>(null)
   const [loadingAddress, setLoadingAddress] = useState(true)
+  const [isVerified, setIsVerified] = useState(false)
 
   useEffect(() => {
     const fetchAddress = async () => {
       try {
+
+        if (
+          typeof window !== 'undefined' &&
+          localStorage.getItem('worldIdVerified') === 'true'
+        ) {
+          setIsVerified(true)
+        }
 
         if (MiniKit.walletAddress) {
           setUserAddress(MiniKit.walletAddress)
@@ -58,13 +66,17 @@ export default function FAQPage() {
       <h1 className="text-2xl font-bold mb-4">FAQ</h1>
       {loadingAddress ? (
         <p>Lade Nutzeradresse...</p>
-      ) : userAddress ? (
-        <button
-          onClick={() => payoutUser(userAddress)}
-          className="mb-4 px-6 py-3 bg-green-600 hover:bg-green-700 rounded text-white font-semibold"
-        >
-          0.1 WLD Test-Auszahlung starten
-        </button>
+      ) : isVerified ? (
+        userAddress ? (
+          <button
+            onClick={() => payoutUser(userAddress)}
+            className="mb-4 px-6 py-3 bg-green-600 hover:bg-green-700 rounded text-white font-semibold"
+          >
+            0.1 WLD Test-Auszahlung starten
+          </button>
+        ) : (
+          <p>Nutzeradresse konnte nicht geladen werden.</p>
+        )
       ) : (
         <p>Bitte einloggen oder verifizieren.</p>
       )}

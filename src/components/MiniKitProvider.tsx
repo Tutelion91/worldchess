@@ -1,10 +1,15 @@
 'use client'
 
-import { useEffect, ReactNode } from 'react'
+import { useEffect, ReactNode, useRef } from 'react'
 import { MiniKit, VerifyCommandInput, VerificationLevel, ISuccessResult } from '@worldcoin/minikit-js'
 
 export const MiniKitProvider = ({ children }: { children: ReactNode }) => {
+  const initializedRef = useRef(false)
+
   useEffect(() => {
+    if (initializedRef.current) return
+    initializedRef.current = true
+
     MiniKit.install()
 
     if (typeof window !== 'undefined' && localStorage.getItem('worldIdVerified') === 'true') {
@@ -40,14 +45,15 @@ export const MiniKitProvider = ({ children }: { children: ReactNode }) => {
         }),
       })
 
-      if (verifyResponse.ok) { // <-- Prüfe direkt den HTTP-Status
+      const resJson = await verifyResponse.json().catch(() => ({} as any))
+
+      if (verifyResponse.ok || resJson.code === 'max_verifications_reached') {
         console.log('Verification success!')
         if (typeof window !== 'undefined') {
           localStorage.setItem('worldIdVerified', 'true')
         }
       } else {
-        const errorText = await verifyResponse.text()
-        console.error('Verification failed:', verifyResponse.status, errorText)
+        console.error('Verification failed:', verifyResponse.status, resJson)
       }
     }
 
