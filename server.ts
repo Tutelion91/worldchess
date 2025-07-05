@@ -53,7 +53,8 @@ function logGameResult(
 nextApp.prepare().then(() => {
   const app = express();
   app.use(cors());
-  app.use(express.json());
+  //app.use(express.json()); Das hier nie wieder einbauen. Dadurch bekomme ich den Fehler [TypeError: Response body object should not be disturbed or locked]
+
 
 // In-Memory Speicher für offene Spiele
 interface Game {
