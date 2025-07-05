@@ -31,6 +31,17 @@ export default function Page() {
         >
           Wartende Spiele
         </Link>
+        <button
+          onClick={() => {
+            if (typeof window !== 'undefined') {
+              localStorage.clear()
+              location.reload()
+            }
+          }}
+          className="block w-64 bg-red-600 hover:bg-red-700 text-white text-lg font-semibold py-3 px-6 rounded-lg text-center shadow-md hover:shadow-lg border border-red-400"
+        >
+          Verifizierung zurücksetzen
+        </button>
       </div>
     </div>
   );
