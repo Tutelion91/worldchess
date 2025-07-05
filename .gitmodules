@@ -1,0 +1,6 @@
+[submodule "Vorlage/minikit-next-template"]
+	path = Vorlage/minikit-next-template
+	url = https://github.com/worldcoin/minikit-next-template.git
+[submodule "Vorlage/minikit-web3-example"]
+	path = Vorlage/minikit-web3-example
+	url = https://github.com/worldcoin/minikit-web3-example
