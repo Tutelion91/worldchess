@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
     const verifyRes = (await verifyCloudProof(payload, appId, action, signal)) as IVerifyResponse
     console.log("verifyRes:", verifyRes)
 
-    if (verifyRes.success) {
+    if (verifyRes.success || verifyRes.code === 'max_verifications_reached') {
       return NextResponse.json(
         {
           success: true,
