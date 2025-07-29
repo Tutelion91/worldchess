@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import Link from "next/link"
 import { MiniKit } from "@worldcoin/minikit-js"
 import { payoutWLD } from "@/lib/payoutWld"
+import { createTestGame, settleTestGame } from "@/lib/testGame"
 
 export default function FAQPage() {
   const [userAddress, setUserAddress] = useState<string | null>(null)
@@ -12,6 +13,8 @@ export default function FAQPage() {
   const [claimed, setClaimed] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
+  const [testGameId, setTestGameId] = useState<string | null>(null)
+  const [txLoading, setTxLoading] = useState(false)
 
   useEffect(() => {
     const fetchAddress = async () => {
@@ -57,6 +60,40 @@ export default function FAQPage() {
     }
   }
 
+  const handleCreateTestGame = async () => {
+    if (!isVerified) {
+      setError('Bitte verifiziere dich über World ID.')
+      return
+    }
+    setTxLoading(true)
+    try {
+      const id = crypto.randomUUID().replace(/-/g, '')
+      await createTestGame(id)
+      setTestGameId(id)
+      setSuccess(true)
+    } catch (e: any) {
+      setError(e.message ?? 'Transaktion abgelehnt')
+    } finally {
+      setTxLoading(false)
+    }
+  }
+
+  const handleSettleTestGame = async () => {
+    if (!testGameId) {
+      setError('Es wurde noch kein Testspiel erstellt.')
+      return
+    }
+    setTxLoading(true)
+    try {
+      await settleTestGame(testGameId)
+      setSuccess(true)
+    } catch (e: any) {
+      setError(e.message ?? 'Transaktion abgelehnt oder kein Besitzer')
+    } finally {
+      setTxLoading(false)
+    }
+  }
+
   return (
     <main className="p-6 text-white">
       <h1 className="text-2xl font-bold mb-4">FAQ</h1>
@@ -67,9 +104,23 @@ export default function FAQPage() {
           <button
             disabled={!isVerified || claimed || !userAddress}
             onClick={handlePayout}
-            className="mb-4 px-6 py-3 bg-green-600 rounded disabled:opacity-50"
+            className="mb-4 px-6 py-2 bg-green-600 rounded disabled:opacity-50"
           >
             0.1 WLD Preisgeld abholen
+          </button>
+          <button
+            onClick={handleCreateTestGame}
+            disabled={txLoading || !isVerified}
+            className="mr-2 mb-4 px-4 py-2 rounded bg-green-600 text-white disabled:opacity-50"
+          >
+            Testspiel erstellen (0.2 WLD)
+          </button>
+          <button
+            onClick={handleSettleTestGame}
+            disabled={txLoading || !isVerified || !testGameId}
+            className="mb-4 px-4 py-2 rounded bg-purple-600 text-white disabled:opacity-50"
+          >
+            Testspiel auszahlen
           </button>
           {success && <p className="text-green-400 mb-2">Auszahlung erfolgreich!</p>}
           {error && <p className="text-red-400 mb-2">{error}</p>}
