@@ -3,8 +3,9 @@
 import { useEffect, useState } from "react"
 import Link from "next/link"
 import { MiniKit } from "@worldcoin/minikit-js"
-import { payoutWLD } from "@/lib/payoutWld"
-import { createTestGame, settleTestGame } from "@/lib/testGame"
+import { MiniKit, tokenToDecimals, Tokens, type PayCommandInput } from "@worldcoin/minikit-js";
+const PAY_TO = process.env.NEXT_PUBLIC_PAY_TO!;
+
 
 export default function FAQPage() {
   const [userAddress, setUserAddress] = useState<string | null>(null)
@@ -40,88 +41,62 @@ export default function FAQPage() {
         setLoadingAddress(false)
       }
     }
+	const handlePayToMetamask = async () => {
+  try {
+    // 1) Referenz vom Backend holen
+    const initRes = await fetch("/api/initiate-payment", { method: "POST" });
+    const { id: reference } = await initRes.json();
+
+    // 2) Payload für MiniKit.pay vorbereiten (0,3 WLD)
+    const input: PayCommandInput = {
+      reference,
+      to: PAY_TO,
+      tokens: [
+        {
+          symbol: Tokens.WLD,
+          token_amount: tokenToDecimals(0.3, Tokens.WLD).toString(),
+        },
+      ],
+      description: "Send 0.3 WLD to my MetaMask wallet",
+    };
+
+    // 3) Zahlung ausführen
+    const { finalPayload } = await MiniKit.commandsAsync.pay(input);
+
+    // 4) (optional) Zahlung im Backend verifizieren
+    await fetch("/api/confirm-payment", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ payload: finalPayload }),
+    });
+
+    setSuccess(true);
+  } catch (e: any) {
+    setError(e?.message ?? "Zahlung fehlgeschlagen");
+  }
+};
 
     fetchAddress()
   }, [])
 
-  const handlePayout = async () => {
-    if (!userAddress) return
-    setError(null)
-    try {
-      await payoutWLD(userAddress)
-      setClaimed(true)
-      setSuccess(true)
-      if (typeof window !== "undefined") {
-        localStorage.setItem("wldPayoutDone", "true")
-      }
-    } catch (err: any) {
-      console.error("Auszahlung fehlgeschlagen", err)
-      setError(err.message || "Transaktion abgelehnt")
-    }
-  }
-
-  const handleCreateTestGame = async () => {
-    if (!isVerified) {
-      setError('Bitte verifiziere dich über World ID.')
-      return
-    }
-    setTxLoading(true)
-    try {
-      const id = crypto.randomUUID().replace(/-/g, '')
-      await createTestGame(id)
-      setTestGameId(id)
-      setSuccess(true)
-    } catch (e: any) {
-      setError(e.message ?? 'Transaktion abgelehnt')
-    } finally {
-      setTxLoading(false)
-    }
-  }
-
-  const handleSettleTestGame = async () => {
-    if (!testGameId) {
-      setError('Es wurde noch kein Testspiel erstellt.')
-      return
-    }
-    setTxLoading(true)
-    try {
-      await settleTestGame(testGameId)
-      setSuccess(true)
-    } catch (e: any) {
-      setError(e.message ?? 'Transaktion abgelehnt oder kein Besitzer')
-    } finally {
-      setTxLoading(false)
-    }
-  }
 
   return (
     <main className="p-6 text-white">
       <h1 className="text-2xl font-bold mb-4">FAQ</h1>
+      <button
+  onClick={handlePayToMetamask}
+  className="mb-4 px-6 py-2 bg-green-600 hover:bg-green-700 rounded disabled:opacity-50"
+  disabled={!userAddress}
+>
+  0,3 WLD an meine MetaMask senden
+</button>
+
       {loadingAddress ? (
         <p>Lade Nutzeradresse...</p>
       ) : (
         <>
-          <button
-            disabled={!isVerified || claimed || !userAddress}
-            onClick={handlePayout}
-            className="mb-4 px-6 py-2 bg-green-600 rounded disabled:opacity-50"
-          >
-            0.1 WLD Preisgeld abholen
-          </button>
-          <button
-            onClick={handleCreateTestGame}
-            disabled={txLoading || !isVerified}
-            className="mr-2 mb-4 px-4 py-2 rounded bg-green-600 text-white disabled:opacity-50"
-          >
-            Testspiel erstellen (0.2 WLD)
-          </button>
-          <button
-            onClick={handleSettleTestGame}
-            disabled={txLoading || !isVerified || !testGameId}
-            className="mb-4 px-4 py-2 rounded bg-purple-600 text-white disabled:opacity-50"
-          >
-            Testspiel auszahlen
-          </button>
+
+
           {success && <p className="text-green-400 mb-2">Auszahlung erfolgreich!</p>}
           {error && <p className="text-red-400 mb-2">{error}</p>}
           {!isVerified && <p>Bitte einloggen oder verifizieren.</p>}
