@@ -88,7 +88,7 @@ export default function GamePage() {
 
         const payload: PayCommandInput = {
           reference,
-          to: '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045',
+          to: process.env.NEXT_PUBLIC_PAY_TO!,
           tokens: [
             {
               symbol: Tokens.WLD,
@@ -110,7 +110,7 @@ export default function GamePage() {
       await fetch('/api/confirm-payment', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(finalPayload),
+        body: JSON.stringify({ payload: finalPayload }),
       });
       if (typeof window !== "undefined") {
         localStorage.setItem(key, 'true');
