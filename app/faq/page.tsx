@@ -32,11 +32,18 @@ export default function FAQPage() {
           }
         }
         const info = await MiniKit.getUserInfo();
-        if ((info as any).wallet_address) {
-          setUserAddress((info as any).wallet_address);
-        } else if ((info as any).walletAddress) {
-          setUserAddress((info as any).walletAddress);
+   let addr = (info as any).wallet_address || (info as any).walletAddress;
+      // Wenn keine Adresse vorhanden ist, fordere sie aktiv an
+      if (!addr) {
+        const { finalPayload: walletPayload } = await MiniKit.commandsAsync.walletAuth({ nonce: crypto.randomUUID() });
+        if ((walletPayload as any).status === 'success' && (walletPayload as any).address) {
+          addr = (walletPayload as any).address;
         }
+      }
+      if (addr) {
+        localStorage.setItem("userAddress", addr);
+        setUserAddress(addr);
+      }
       } catch (err) {
         console.error("Nutzerinfo konnte nicht geladen werden", err);
       } finally {
