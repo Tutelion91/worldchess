@@ -1,0 +1,225 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+/// @notice Worldchain Escrow für Worldchess – Einsätze per MiniKit Pay, Settlement on-chain.
+/// @dev  - Einzahlungen kommen als ERC-20 Transfers (WLD) an die Contract-Adresse.
+///       - Backend verifiziert Zahlungen off-chain und ruft createGameRecord/markJoined.
+///       - settleGame zahlt Gewinn und 5%-Fee an feeRecipient aus. Keine Approvals/Permit2 nötig.
+
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+
+contract WorldchessGame is ReentrancyGuard, Ownable {
+    using SafeERC20 for IERC20;
+
+    // -----------------------------------------------------------------------
+    // Immutable config
+    // -----------------------------------------------------------------------
+
+    IERC20 public immutable wldToken;      // WLD Token auf World Chain (Mainnet)
+
+    // -----------------------------------------------------------------------
+    // Roles & fee
+    // -----------------------------------------------------------------------
+
+    address public settler;                // Backend/Relayer, setzt Records & settled
+    address public feeRecipient;           // Empfänger der Fee (dein privates Wallet)
+    uint16  public feeBps;                 // z. B. 500 = 5% (Basis-Punkte von 10_000)
+
+    uint16 public constant MAX_FEE_BPS = 1000; // Safety-Cap: max 10%
+
+    // -----------------------------------------------------------------------
+    // Game storage
+    // -----------------------------------------------------------------------
+
+    struct Game {
+        address player1;
+        address player2;
+        uint256 stake;      // Einsatz pro Spieler (in WLD-Wei)
+        bool    active;
+        uint64  createdAt;
+    }
+
+    mapping(uint256 => Game) public games;
+
+    // -----------------------------------------------------------------------
+    // Events
+    // -----------------------------------------------------------------------
+
+    event GameCreated(uint256 indexed gameId, address indexed player1, uint256 stake);
+    event GameJoined(uint256 indexed gameId, address indexed player2);
+    event GameSettled(uint256 indexed gameId, address indexed winner, uint256 payout, uint256 fee);
+    event GameRefunded(uint256 indexed gameId, address indexed player);
+    event SettlerUpdated(address indexed newSettler);
+    event FeeConfigUpdated(address indexed feeRecipient, uint16 feeBps);
+
+    // -----------------------------------------------------------------------
+    // Constructor
+    // -----------------------------------------------------------------------
+
+    constructor(
+        address _wldToken,
+        address _owner,
+        address _settler,
+        address _feeRecipient, // <- HIER kommt deine Wallet rein (z. B. 0xfdaA…)
+        uint16  _feeBps        // z. B. 500 = 5%
+    ) Ownable(_owner) {
+        require(_wldToken != address(0), "Invalid token");
+        require(_owner != address(0), "Invalid owner");
+        require(_settler != address(0), "Invalid settler");
+        require(_feeRecipient != address(0), "Invalid feeRecipient");
+        require(_feeBps <= MAX_FEE_BPS, "fee too high");
+
+        wldToken     = IERC20(_wldToken);
+        settler      = _settler;
+        feeRecipient = _feeRecipient;
+        feeBps       = _feeBps;
+
+        emit SettlerUpdated(_settler);
+        emit FeeConfigUpdated(_feeRecipient, _feeBps);
+    }
+
+    // -----------------------------------------------------------------------
+    // Modifiers / Admin
+    // -----------------------------------------------------------------------
+
+    modifier onlySettler() {
+        require(msg.sender == settler || msg.sender == owner(), "Not authorized");
+        _;
+    }
+
+    function updateSettler(address newSettler) external onlyOwner {
+        require(newSettler != address(0), "Invalid settler");
+        settler = newSettler;
+        emit SettlerUpdated(newSettler);
+    }
+
+    function updateFeeConfig(address _feeRecipient, uint16 _feeBps) external onlyOwner {
+        require(_feeRecipient != address(0), "Invalid feeRecipient");
+        require(_feeBps <= MAX_FEE_BPS, "fee too high");
+        feeRecipient = _feeRecipient;
+        feeBps       = _feeBps;
+        emit FeeConfigUpdated(_feeRecipient, _feeBps);
+    }
+
+    // -----------------------------------------------------------------------
+    // MiniKit Pay Flow – nur Records (keine Token-Pulls)
+    // -----------------------------------------------------------------------
+    /// @notice Diese beiden Funktionen ruft dein Backend, NACHDEM es die Zahlung per Dev-Portal
+    ///         verifiziert hat (to == address(this), amount == stake, token == WLD, status == success).
+
+    function createGameRecord(
+        uint256 _gameId,
+        address _player1,
+        uint256 _stake
+    ) external onlySettler {
+        require(_player1 != address(0), "p1=0");
+        require(_stake > 0, "stake=0");
+        require(games[_gameId].player1 == address(0), "exists");
+
+        games[_gameId] = Game({
+            player1: _player1,
+            player2: address(0),
+            stake:   _stake,
+            active:  true,
+            createdAt: uint64(block.timestamp)
+        });
+
+        emit GameCreated(_gameId, _player1, _stake);
+    }
+
+    function markJoined(
+        uint256 _gameId,
+        address _player2
+    ) external onlySettler {
+        Game storage g = games[_gameId];
+        require(g.active, "inactive");
+        require(g.player2 == address(0), "full");
+        require(_player2 != address(0) && _player2 != g.player1, "bad p2");
+
+        g.player2 = _player2;
+        emit GameJoined(_gameId, _player2);
+    }
+
+    // -----------------------------------------------------------------------
+    // Settlement & Refunds
+    // -----------------------------------------------------------------------
+
+    function settleGame(uint256 _gameId, address winner) external onlySettler nonReentrant {
+        Game storage g = games[_gameId];
+        require(g.active, "already settled");
+        require(g.player2 != address(0), "not started");
+        require(winner == g.player1 || winner == g.player2, "winner not a player");
+
+        uint256 totalPot = g.stake * 2;
+        require(wldToken.balanceOf(address(this)) >= totalPot, "insufficient pot");
+
+        g.active = false; // effects-before-interactions
+
+        uint256 fee   = (totalPot * feeBps) / 10_000;     // 5 %
+        uint256 payout = totalPot - fee;                  // 95 %
+
+        wldToken.safeTransfer(winner, payout);
+        if (fee > 0) wldToken.safeTransfer(feeRecipient, fee);
+
+        emit GameSettled(_gameId, winner, payout, fee);
+    }
+
+    function settleDraw(uint256 _gameId) external onlySettler nonReentrant {
+        Game storage g = games[_gameId];
+        require(g.active, "already settled");
+        require(g.player2 != address(0), "not started");
+
+        require(wldToken.balanceOf(address(this)) >= g.stake * 2, "insufficient pot");
+
+        g.active = false;
+
+        wldToken.safeTransfer(g.player1, g.stake);
+        wldToken.safeTransfer(g.player2, g.stake);
+
+        emit GameSettled(_gameId, address(0), 0, 0);
+    }
+
+    function refundIfNoOpponent(uint256 _gameId) external nonReentrant {
+        Game storage g = games[_gameId];
+        require(g.active, "inactive");
+        require(g.player2 == address(0), "opponent joined");
+        require(msg.sender == g.player1, "only p1");
+
+        // Optionaler Timeout:
+        // require(block.timestamp >= g.createdAt + 1 hours, "too early");
+
+        require(wldToken.balanceOf(address(this)) >= g.stake, "insufficient balance");
+
+        g.active = false;
+        wldToken.safeTransfer(g.player1, g.stake);
+
+        emit GameRefunded(_gameId, g.player1);
+    }
+
+    // -----------------------------------------------------------------------
+    // Admin helpers
+    // -----------------------------------------------------------------------
+
+    /// @notice Notfall: falsch gesendete Token (nicht WLD) abziehen
+    function sweep(address token, address to, uint256 amount) external onlyOwner {
+        require(to != address(0), "zero to");
+        IERC20(token).safeTransfer(to, amount);
+    }
+
+    // -----------------------------------------------------------------------
+    // Views
+    // -----------------------------------------------------------------------
+
+    function getGameInfo(uint256 _gameId)
+        external
+        view
+        returns (address player1, address player2, uint256 stake, bool active, uint64 createdAt)
+    {
+        Game storage g = games[_gameId];
+        return (g.player1, g.player2, g.stake, g.active, g.createdAt);
+    }
+}
+
