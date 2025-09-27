@@ -121,9 +121,9 @@ export default function CreateGamePage() {
         <input
           type="range"
           id="stake"
-          min={0}
+          min={0.5}
           max={10}
-          step={0.1}
+          step={0.5}
           value={stake}
           onChange={(e) => setStake(parseFloat(e.target.value))}
           className="w-full"
