@@ -70,6 +70,8 @@ interface Game {
     to: { x: number; y: number };
     promotion?: string;
   }>;
+  whiteAddress?: string;
+  blackAddress?: string;
 }
 const games: Record<string, Game> = {};
 // Mapping from websocket connections to the assigned player color
@@ -195,7 +197,7 @@ app.get("/games/:id", (req: Request, res: Response, next: NextFunction) => {
 
     // Neues Spiel anlegen
     if (data.type === "new-game") {
-      const { id, timeControl, stake } = data.payload;
+      const { id, timeControl, stake, hostAddress } = data.payload;
       games[id] = {
         id,
         timeControl,
@@ -205,6 +207,7 @@ app.get("/games/:id", (req: Request, res: Response, next: NextFunction) => {
         finished: false,
         board: new Chess(),
         moves: [],
+        whiteAddress: hostAddress,
       };
       // Create log file for this game
       try {
@@ -235,12 +238,18 @@ app.get("/games/:id", (req: Request, res: Response, next: NextFunction) => {
           return;
         }
         game.players.push(ws);
+        game.blackAddress = data.address;
       }
       // Starte Spiel erst, wenn genau 2 unterschiedliche Clients verbunden sind
       if (!game.started && game.players.length === 2) {
         game.started = true;
-        const colors: Array<'white' | 'black'> = ['white', 'black'];
-        colors.sort(() => Math.random() - 0.5);
+        const colors = ['white','black'] as Array<'white'|'black'>;
+  	colors.sort(() => Math.random() - 0.5);
+  	if (colors[0] === 'black') {
+    const temp = game.whiteAddress;
+    game.whiteAddress = game.blackAddress;
+    game.blackAddress = temp;
+  }
         game.players.forEach((player, idx) => {
           const color = colors[idx];
           playerColors.set(player, color);
@@ -447,13 +456,24 @@ app.get("/games/:id", (req: Request, res: Response, next: NextFunction) => {
       if (!room.started && room.players.length === 0) {
         console.log("Lösche ungenutzten Raum", id);
         delete games[id];
+        wss.clients.forEach(client => {
+    if (client.readyState === WebSocket.OPEN) {
+      client.send(JSON.stringify({ type: "game-cancelled", gameId: id }));
+    }
       }
       // Abbrechen bei Spielabbrüchen
-      else if (room.started && room.players.length > 0) {
-        room.players.forEach(player =>
-          player.send(JSON.stringify({ type: "game-aborted", message: "Gegner hat das Spiel verlassen" }))
-        );
-      }
+else if (room.started && room.players.length > 0) {
+  // Der verbleibende Spieler ist Sieger
+  const remaining = room.players[0];
+  const winnerColor = playerColors.get(remaining); // 'white' oder 'black'
+  remaining.send(JSON.stringify({
+    type: "game-over",
+    payload: { winner: winnerColor, reason: "opponent disconnected" },
+  }));
+  room.finished = true;
+  // TODO: hier aus deinem Backend settleGame aufrufen (Escrow-Contract)
+}
+
     }
   });
 });

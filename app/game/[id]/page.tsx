@@ -107,17 +107,20 @@ export default function GamePage() {
           } catch {}
         }
 
-      await fetch('/api/confirm-payment', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ payload: finalPayload }),
-      });
-      if (typeof window !== "undefined") {
-        localStorage.setItem(key, 'true');
-      }
-      if (typeof window !== "undefined") {
-        localStorage.setItem(key, 'true');
-      }
+const confirmRes = await fetch('/api/confirm-payment', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ payload: finalPayload }),
+});
+const { success } = await confirmRes.json();
+if (!success) {
+  alert('Payment failed. Bitte erneut versuchen.');
+  return;
+}
+if (typeof window !== "undefined") {
+  localStorage.setItem(key, 'true');
+}
+
     };
 
     payStake();

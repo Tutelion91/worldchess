@@ -60,10 +60,10 @@ export function onMessage(callback: (data: any) => void): () => void {
   socket.addEventListener("message", handler);
   return () => socket?.removeEventListener("message", handler);
 }
-
 export function connectToGame(gameId: string) {
   if (currentGameId !== gameId) {
-    sendMessage({ type: "join", gameId });
+    const addr = localStorage.getItem("userAddress");
+    sendMessage({ type: "join", gameId, address: addr });
     currentGameId = gameId;
   }
 }

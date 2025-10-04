@@ -66,15 +66,22 @@ export default function CreateGamePage() {
           } catch {}
         }
 
-      await fetch('/api/confirm-payment', {
+const confirmRes = await fetch('/api/confirm-payment', {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({ payload: finalPayload }),
 });
+const { success } = await confirmRes.json();
+if (!success) {
+  alert('Payment failed. Bitte erneut versuchen.');
+  return; // bricht den Flow ab
+}
 
+localStorage.setItem(key, 'true');
 
-      localStorage.setItem(key, 'true');
     };
+const hostAddress = localStorage.getItem("userAddress");
+sendMessage({ type: "new-game", payload: { ...newGame, hostAddress } });
 
     await payStake();
 

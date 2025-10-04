@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import {
   MiniKit,
   tokenToDecimals,
@@ -9,115 +8,214 @@ import {
   type PayCommandInput,
 } from "@worldcoin/minikit-js";
 
-const PAY_TO = process.env.NEXT_PUBLIC_PAY_TO!;
+const PAY_TO = process.env.NEXT_PUBLIC_PAY_TO!; // Escrow Contract
 
 export default function FAQPage() {
   const [userAddress, setUserAddress] = useState<string | null>(null);
-  const [loadingAddress, setLoadingAddress] = useState(true);
-  const [isVerified, setIsVerified] = useState(false);
-  const [claimed, setClaimed] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
+  const [gameId, setGameId] = useState("");
+  const [status, setStatus] = useState("");
 
-  // Adresse laden
+  // Wallet-Adresse laden (MiniKit) + fallback walletAuth
   useEffect(() => {
-    const fetchAddress = async () => {
+    (async () => {
       try {
-        if (typeof window !== "undefined") {
-          if (localStorage.getItem("worldIdVerified") === "true") {
-            setIsVerified(true);
-          }
-          if (localStorage.getItem("wldPayoutDone") === "true") {
-            setClaimed(true);
-          }
-        }
         const info = await MiniKit.getUserInfo();
-   let addr = (info as any).wallet_address || (info as any).walletAddress;
-      // Wenn keine Adresse vorhanden ist, fordere sie aktiv an
-      if (!addr) {
-        const { finalPayload: walletPayload } = await MiniKit.commandsAsync.walletAuth({ nonce: crypto.randomUUID() });
-        if ((walletPayload as any).status === 'success' && (walletPayload as any).address) {
-          addr = (walletPayload as any).address;
+        let addr =
+          (info as any)?.wallet_address || (info as any)?.walletAddress || null;
+
+        if (!addr) {
+          const { finalPayload } = await MiniKit.commandsAsync.walletAuth({
+            nonce: crypto.randomUUID(),
+          });
+          if ((finalPayload as any)?.status === "success") {
+            addr = (finalPayload as any)?.address ?? null;
+          }
         }
+        if (addr) {
+          localStorage.setItem("userAddress", addr);
+          setUserAddress(addr);
+        }
+      } catch (e) {
+        console.error(e);
       }
-      if (addr) {
-        localStorage.setItem("userAddress", addr);
-        setUserAddress(addr);
-      }
-      } catch (err) {
-        console.error("Nutzerinfo konnte nicht geladen werden", err);
-      } finally {
-        setLoadingAddress(false);
-      }
-    };
-    fetchAddress();
+    })();
   }, []);
 
-  // Zahlung anstoßen
-  const handlePayToMetamask = async () => {
+  // 0,3 WLD zahlen + Backend verifizieren lassen
+  const pay = async (amountWLD: number) => {
+    setStatus("Starte Zahlung ...");
+
+    const init = await fetch("/api/initiate-payment", { method: "POST" });
+    const { id: reference } = await init.json();
+
+    const input: PayCommandInput = {
+      reference,
+      to: PAY_TO,
+      tokens: [
+        {
+          symbol: Tokens.WLD,
+          token_amount: tokenToDecimals(amountWLD, Tokens.WLD).toString(),
+        },
+      ],
+      description: `Worldchess Test Stake ${amountWLD} WLD`,
+    };
+
+    const { finalPayload } = await MiniKit.commandsAsync.pay(input);
+
+    const confirm = await fetch("/api/confirm-payment", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(finalPayload),
+    });
+    const res = await confirm.json();
+    if (!res?.success) throw new Error("Payment verification failed");
+  };
+
+  const requireAddrAndId = () => {
+    if (!userAddress) {
+      setStatus("Keine Wallet-Adresse gefunden (MiniKit).");
+      return false;
+    }
+    if (!gameId) {
+      setStatus("Bitte eine Game-ID eingeben.");
+      return false;
+    }
+    return true;
+  };
+
+  // Host zahlt 0,3 WLD und legt GameRecord im Escrow an
+  const handleCreate = async () => {
+    if (!requireAddrAndId()) return;
     try {
-      // 1) Referenz vom Backend holen
-      const initRes = await fetch("/api/initiate-payment", { method: "POST" });
-      const { id: reference } = await initRes.json();
-
-      // 2) payload bauen (0.3 WLD)
-      const input: PayCommandInput = {
-        reference,
-        to: PAY_TO,
-        tokens: [
-          {
-            symbol: Tokens.WLD,
-            token_amount: tokenToDecimals(0.3, Tokens.WLD).toString(),
-          },
-        ],
-        description: "Send 0.3 WLD to my MetaMask wallet",
-      };
-
-      // 3) Zahlung ausführen
-      const { finalPayload } = await MiniKit.commandsAsync.pay(input);
-
-      // 4) optional: Bestätigung beim Backend
-      await fetch("/api/confirm-payment", {
+      await pay(0.3);
+      setStatus("Zahlung Host ok. Erzeuge GameRecord im Escrow...");
+      const r = await fetch("/api/create-game", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ payload: finalPayload }),
+        body: JSON.stringify({ gameId, stakeWLD: 0.3, player1: userAddress }),
       });
-
-      setSuccess(true);
+      const j = await r.json();
+      if (!j.success) throw new Error(j.error || "create-game failed");
+      setStatus("GameRecord erstellt.");
     } catch (e: any) {
-      setError(e?.message ?? "Zahlung fehlgeschlagen");
+      setStatus(e?.message || "Fehler bei Create");
+    }
+  };
+
+  // Joiner zahlt 0,3 WLD und markiert Join im Escrow
+  const handleJoin = async () => {
+    if (!requireAddrAndId()) return;
+    try {
+      await pay(0.3);
+      setStatus("Zahlung Spieler 2 ok. Markiere Join im Escrow...");
+      const r = await fetch("/api/join-game", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ gameId, player2: userAddress }),
+      });
+      const j = await r.json();
+      if (!j.success) throw new Error(j.error || "join-game failed");
+      setStatus("Join markiert.");
+    } catch (e: any) {
+      setStatus(e?.message || "Fehler bei Join");
+    }
+  };
+
+  // Auszahlen: Spieler 1 gewinnt
+  const handleSettleP1 = async () => {
+    if (!gameId) {
+      setStatus("Bitte eine Game-ID eingeben.");
+      return;
+    }
+    try {
+      setStatus("Settle: Spieler 1 ...");
+      const r = await fetch("/api/settle-game", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ gameId, winner: "p1" }),
+      });
+      const j = await r.json();
+      if (!j.success) throw new Error(j.error || "settle-game failed");
+      setStatus("Ausgezahlt an Spieler 1.");
+    } catch (e: any) {
+      setStatus(e?.message || "Fehler bei Settle P1");
+    }
+  };
+
+  // Auszahlen: Spieler 2 gewinnt
+  const handleSettleP2 = async () => {
+    if (!gameId) {
+      setStatus("Bitte eine Game-ID eingeben.");
+      return;
+    }
+    try {
+      setStatus("Settle: Spieler 2 ...");
+      const r = await fetch("/api/settle-game", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ gameId, winner: "p2" }),
+      });
+      const j = await r.json();
+      if (!j.success) throw new Error(j.error || "settle-game failed");
+      setStatus("Ausgezahlt an Spieler 2.");
+    } catch (e: any) {
+      setStatus(e?.message || "Fehler bei Settle P2");
+    }
+  };
+
+  // Unentschieden
+  const handleDraw = async () => {
+    if (!gameId) {
+      setStatus("Bitte eine Game-ID eingeben.");
+      return;
+    }
+    try {
+      setStatus("Settle: Unentschieden ...");
+      const r = await fetch("/api/settle-draw", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ gameId }),
+      });
+      const j = await r.json();
+      if (!j.success) throw new Error(j.error || "settle-draw failed");
+      setStatus("Unentschieden ausgezahlt.");
+    } catch (e: any) {
+      setStatus(e?.message || "Fehler bei Draw");
     }
   };
 
   return (
-    <main className="p-6 text-white">
-      <h1 className="text-2xl font-bold mb-4">FAQ</h1>
+    <main className="p-4 space-y-3">
+      <h1 className="text-xl font-bold">FAQ • Escrow Schnelltest</h1>
+      <div>Escrow Contract: {PAY_TO}</div>
+      <div>Deine Wallet: {userAddress ?? "lädt ..."}</div>
 
-      <button
-        onClick={handlePayToMetamask}
-        className="mb-4 px-6 py-2 bg-green-600 hover:bg-green-700 rounded disabled:opacity-50"
-        disabled={!userAddress}
-      >
-        0,3 WLD an meine MetaMask senden
-      </button>
+      <input
+        className="border p-2 w-full"
+        placeholder="Game-ID (frei wählbar)"
+        value={gameId}
+        onChange={(e) => setGameId(e.target.value)}
+      />
 
-      {loadingAddress ? (
-        <p>Lade Nutzeradresse…</p>
-      ) : (
-        <>
-          {success && <p className="text-green-400 mb-2">Auszahlung erfolgreich!</p>}
-          {error && <p className="text-red-400 mb-2">{error}</p>}
-          {!isVerified && <p>Bitte einloggen oder verifizieren.</p>}
-          {!userAddress && !error && <p>Nutzeradresse konnte nicht geladen werden.</p>}
-        </>
-      )}
+      <div className="flex flex-wrap gap-2">
+        <button onClick={handleCreate} className="px-3 py-2 border rounded">
+          Host: 0,3 WLD zahlen & GameRecord anlegen
+        </button>
+        <button onClick={handleJoin} className="px-3 py-2 border rounded">
+          Joiner: 0,3 WLD zahlen & Join markieren
+        </button>
+        <button onClick={handleSettleP1} className="px-3 py-2 border rounded">
+          Settle: Spieler 1 gewinnt
+        </button>
+        <button onClick={handleSettleP2} className="px-3 py-2 border rounded">
+          Settle: Spieler 2 gewinnt
+        </button>
+        <button onClick={handleDraw} className="px-3 py-2 border rounded">
+          Settle: Unentschieden
+        </button>
+      </div>
 
-      <Link
-        href="/"
-        className="mt-8 px-6 py-3 bg-blue-600 hover:bg-blue-700 rounded text-white font-semibold inline-block"
-      >
-        Zurück
-      </Link>
+      <div className="text-sm text-gray-600">{status}</div>
     </main>
   );
 }
