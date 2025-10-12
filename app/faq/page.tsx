@@ -14,6 +14,7 @@ export default function FAQPage() {
   const [userAddress, setUserAddress] = useState<string | null>(null);
   const [gameId, setGameId] = useState("");
   const [status, setStatus] = useState("");
+  const [player2Override, setPlayer2Override] = useState(""); // optional zweite Adresse (z. B. MetaMask)
 
   // Wallet-Adresse laden (MiniKit) + fallback walletAuth
   useEffect(() => {
@@ -62,10 +63,11 @@ export default function FAQPage() {
 
     const { finalPayload } = await MiniKit.commandsAsync.pay(input);
 
+    // confirmPayment: sende {payload: finalPayload}, wie von deinem Endpunkt erwartet
     const confirm = await fetch("/api/confirm-payment", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(finalPayload),
+      body: JSON.stringify({ payload: finalPayload }),
     });
     const res = await confirm.json();
     if (!res?.success) throw new Error("Payment verification failed");
@@ -109,15 +111,52 @@ export default function FAQPage() {
       await pay(0.3);
       setStatus("Zahlung Spieler 2 ok. Markiere Join im Escrow...");
       const r = await fetch("/api/join-game", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ gameId, player2: userAddress }),
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ gameId, player2: userAddress }),
       });
       const j = await r.json();
       if (!j.success) throw new Error(j.error || "join-game failed");
       setStatus("Join markiert.");
     } catch (e: any) {
       setStatus(e?.message || "Fehler bei Join");
+    }
+  };
+
+  // NEU: Join nur markieren (ohne zweite Zahlung) – für Tests mit MetaMask-Adresse
+  const handleJoinMarkOnly = async () => {
+    if (!requireAddrAndId()) return;
+    const p2 = player2Override.trim();
+    if (!/^0x[0-9a-fA-F]{40}$/.test(p2)) {
+      setStatus("Bitte eine gültige Player-2-Adresse eingeben");
+      return;
+    }
+    try {
+      setStatus("Markiere Join im Escrow (ohne Zahlung) …");
+      const r = await fetch("/api/join-game", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ gameId, player2: p2 }),
+      });
+      const j = await r.json();
+      if (!j.success) throw new Error(j.error || "join-game failed");
+      setStatus("Join markiert (ohne Zahlung).");
+    } catch (e: any) {
+      setStatus(e?.message || "Fehler bei Join ohne Zahlung");
+    }
+  };
+
+  // NEU: Zweiten Stake einzahlen (Extra-Deposit)
+  const handleExtraStake = async () => {
+    if (!gameId) {
+      setStatus("Bitte eine Game-ID eingeben.");
+      return;
+    }
+    try {
+      await pay(0.3);
+      setStatus("Zweite Zahlung ok.");
+    } catch (e: any) {
+      setStatus(e?.message || "Fehler bei zweiter Zahlung");
     }
   };
 
@@ -197,12 +236,26 @@ export default function FAQPage() {
         onChange={(e) => setGameId(e.target.value)}
       />
 
+      {/* Optional: zweite Adresse für Join ohne Zahlung */}
+      <input
+        className="border p-2 w-full"
+        placeholder="(optional) Player-2-Adresse (0x...)"
+        value={player2Override}
+        onChange={(e) => setPlayer2Override(e.target.value)}
+      />
+
       <div className="flex flex-wrap gap-2">
         <button onClick={handleCreate} className="px-3 py-2 border rounded">
           Host: 0,3 WLD zahlen & GameRecord anlegen
         </button>
         <button onClick={handleJoin} className="px-3 py-2 border rounded">
           Joiner: 0,3 WLD zahlen & Join markieren
+        </button>
+        <button onClick={handleJoinMarkOnly} className="px-3 py-2 border rounded">
+          Nur Join markieren (ohne Zahlung)
+        </button>
+        <button onClick={handleExtraStake} className="px-3 py-2 border rounded">
+          Extra Stake zahlen
         </button>
         <button onClick={handleSettleP1} className="px-3 py-2 border rounded">
           Settle: Spieler 1 gewinnt

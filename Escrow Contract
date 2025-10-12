@@ -4,11 +4,12 @@ pragma solidity ^0.8.20;
 /// @notice Worldchain Escrow für Worldchess – Einsätze per MiniKit Pay, Settlement on-chain.
 /// @dev  - Einzahlungen kommen als ERC-20 Transfers (WLD) an die Contract-Adresse.
 ///       - Backend verifiziert Zahlungen off-chain und ruft createGameRecord/markJoined.
-///       - settleGame zahlt Gewinn und 5%-Fee an feeRecipient aus. Keine Approvals/Permit2 nötig.
+///       - settleGame zahlt Gewinn und Fee an feeRecipient aus. Bei Unentschieden wird ebenfalls eine Fee erhoben.
+///       - cancelGame ermöglicht dem Settler, ein ungestartetes Spiel zu stornieren und den Einsatz zurückzugeben.
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 contract WorldchessGame is ReentrancyGuard, Ownable {
@@ -63,8 +64,8 @@ contract WorldchessGame is ReentrancyGuard, Ownable {
         address _wldToken,
         address _owner,
         address _settler,
-        address _feeRecipient, // <- HIER kommt deine Wallet rein (z. B. 0xfdaA…)
-        uint16  _feeBps        // z. B. 500 = 5%
+        address _feeRecipient,
+        uint16  _feeBps
     ) Ownable(_owner) {
         require(_wldToken != address(0), "Invalid token");
         require(_owner != address(0), "Invalid owner");
@@ -147,6 +148,7 @@ contract WorldchessGame is ReentrancyGuard, Ownable {
     // Settlement & Refunds
     // -----------------------------------------------------------------------
 
+    /// @notice Gewinner festlegen und Pot minus Fee an den Sieger senden
     function settleGame(uint256 _gameId, address winner) external onlySettler nonReentrant {
         Game storage g = games[_gameId];
         require(g.active, "already settled");
@@ -158,8 +160,8 @@ contract WorldchessGame is ReentrancyGuard, Ownable {
 
         g.active = false; // effects-before-interactions
 
-        uint256 fee   = (totalPot * feeBps) / 10_000;     // 5 %
-        uint256 payout = totalPot - fee;                  // 95 %
+        uint256 fee   = (totalPot * feeBps) / 10_000;     // Fee in Basis-Punkten
+        uint256 payout = totalPot - fee;                  // verbleibender Pot für Sieger
 
         wldToken.safeTransfer(winner, payout);
         if (fee > 0) wldToken.safeTransfer(feeRecipient, fee);
@@ -167,35 +169,53 @@ contract WorldchessGame is ReentrancyGuard, Ownable {
         emit GameSettled(_gameId, winner, payout, fee);
     }
 
+    /// @notice Unentschieden auszahlen und Fee berechnen
     function settleDraw(uint256 _gameId) external onlySettler nonReentrant {
         Game storage g = games[_gameId];
         require(g.active, "already settled");
         require(g.player2 != address(0), "not started");
 
-        require(wldToken.balanceOf(address(this)) >= g.stake * 2, "insufficient pot");
+        uint256 totalPot = g.stake * 2;
+        require(wldToken.balanceOf(address(this)) >= totalPot, "insufficient pot");
 
         g.active = false;
 
-        wldToken.safeTransfer(g.player1, g.stake);
-        wldToken.safeTransfer(g.player2, g.stake);
+        // Gebühr berechnen auf den gesamten Pot
+        uint256 fee   = (totalPot * feeBps) / 10_000;
+        uint256 payoutPerPlayer = (totalPot - fee) / 2;
 
-        emit GameSettled(_gameId, address(0), 0, 0);
+        wldToken.safeTransfer(g.player1, payoutPerPlayer);
+        wldToken.safeTransfer(g.player2, payoutPerPlayer);
+        if (fee > 0) wldToken.safeTransfer(feeRecipient, fee);
+
+        // Emit: payout = Summe der Auszahlungen an Spieler
+        emit GameSettled(_gameId, address(0), totalPot - fee, fee);
     }
 
+    /// @notice Spieler 1 erstattet den Stake, wenn niemand beigetreten ist – nur p1 darf rufen
     function refundIfNoOpponent(uint256 _gameId) external nonReentrant {
         Game storage g = games[_gameId];
         require(g.active, "inactive");
         require(g.player2 == address(0), "opponent joined");
         require(msg.sender == g.player1, "only p1");
 
-        // Optionaler Timeout:
-        // require(block.timestamp >= g.createdAt + 1 hours, "too early");
-
         require(wldToken.balanceOf(address(this)) >= g.stake, "insufficient balance");
 
         g.active = false;
         wldToken.safeTransfer(g.player1, g.stake);
 
+        emit GameRefunded(_gameId, g.player1);
+    }
+
+    /// @notice Ungestartetes Spiel abbrechen und den Stake an Spieler 1 zurückgeben (nur Settler/Owner)
+    function cancelGame(uint256 _gameId) external onlySettler nonReentrant {
+        Game storage g = games[_gameId];
+        require(g.active, "inactive");
+        require(g.player2 == address(0), "opponent joined");
+
+        require(wldToken.balanceOf(address(this)) >= g.stake, "insufficient balance");
+        g.active = false;
+        wldToken.safeTransfer(g.player1, g.stake);
         emit GameRefunded(_gameId, g.player1);
     }
 
