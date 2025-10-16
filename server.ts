@@ -33,6 +33,7 @@ const ESCROW_ABI = [
   "function settleGame(uint256 _gameId, address winner) external",
 ];
 
+
 function toGameId(gameId: string): bigint {
   return gameId.startsWith("0x")
     ? BigInt(gameId)
@@ -492,10 +493,12 @@ nextApp.prepare().then(() => {
     ws.on("close", () => {
       console.log("WebSocket: Client getrennt");
       playerColors.delete(ws);
+
       for (const id in games) {
         const room = games[id];
         room.players = room.players.filter(p => p !== ws);
-        // Nur ungestartete Räume sofort löschen
+
+        // ungestartetes Spiel, keine Spieler → löschen & cancelGame
         if (!room.started && room.players.length === 0) {
           console.log("Lösche ungenutzten Raum", id);
           delete games[id];
@@ -508,15 +511,21 @@ nextApp.prepare().then(() => {
               client.send(JSON.stringify({ type: "game-cancelled", gameId: id }));
             }
           });
-        } else if (room.started && room.players.length > 0) {
-          // Der verbleibende Spieler ist Sieger
+          cancelGameOnChain(id).catch((err: any) => {
+            console.error(`cancelGameOnChain(${id}) failed:`, err);
+          });
+        }
+        // laufendes Spiel, noch ein Spieler und noch nicht beendet
+        else if (room.started && room.players.length > 0 && !room.finished) {
           const remaining = room.players[0];
           const winnerColor = playerColors.get(remaining); // 'white' oder 'black'
           if (remaining.readyState === WebSocket.OPEN) {
-            remaining.send(JSON.stringify({
-              type: "game-over",
-              payload: { winner: winnerColor, reason: "opponent disconnected" },
-            }));
+            remaining.send(
+              JSON.stringify({
+                type: "game-over",
+                payload: { winner: winnerColor, reason: "opponent disconnected" },
+              })
+            );
           }
           room.finished = true;
           if (winnerColor) {

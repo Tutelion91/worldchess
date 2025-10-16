@@ -18,11 +18,11 @@ export default function CreateGamePage() {
       if (msg.type === "new-game-ack") {
         console.log("[create-game] Bestätigung vom Server erhalten, Weiterleitung...");
         router.push(`/waiting-room/${msg.gameId}`);
-         }
+      }
     });
-      return () => {
+    return () => {
       offMsg();
-         };
+    };
   }, [router]);
 
   const handleCreate = async () => {
@@ -40,54 +40,69 @@ export default function CreateGamePage() {
 
     const payStake = async () => {
       const key = `stakePaid-${newGame.id}`;
-      if (typeof window === "undefined" || localStorage.getItem(key)) return;
+      if (typeof window === "undefined") {
+        return false;
+      }
+      if (localStorage.getItem(key)) {
+        return true;
+      }
 
       const res = await fetch('/api/initiate-pay', { method: 'POST' });
       const { id: reference } = await res.json();
 
-        const payload: PayCommandInput = {
-          reference,
-          to: process.env.NEXT_PUBLIC_PAY_TO!,
-          tokens: [
-            {
-              symbol: Tokens.WLD,
-              token_amount: tokenToDecimals(newGame.stake, Tokens.WLD).toString(),
-            },
-          ],
-          description: `Stake payment for game ${newGame.id}`,
-        };
+      const payload: PayCommandInput = {
+        reference,
+        to: process.env.NEXT_PUBLIC_PAY_TO!,
+        tokens: [
+          {
+            symbol: Tokens.WLD,
+            token_amount: tokenToDecimals(newGame.stake, Tokens.WLD).toString(),
+          },
+        ],
+        description: `Stake payment for game ${newGame.id}`,
+      };
 
-        if (!MiniKit.isInstalled()) return;
+      if (!MiniKit.isInstalled()) {
+        return false;
+      }
 
-        const { finalPayload } = await MiniKit.commandsAsync.pay(payload);
-        if ('from' in finalPayload && finalPayload.from) {
-          try {
-            localStorage.setItem("userAddress", finalPayload.from);
-          } catch {}
-        }
+      const { finalPayload } = await MiniKit.commandsAsync.pay(payload);
+      if ('from' in finalPayload && finalPayload.from) {
+        try {
+          localStorage.setItem("userAddress", finalPayload.from);
+        } catch {}
+      }
 
-const confirmRes = await fetch('/api/confirm-payment', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ payload: finalPayload }),
-});
-const { success } = await confirmRes.json();
-if (!success) {
-  alert('Payment failed. Bitte erneut versuchen.');
-  return; // bricht den Flow ab
-}
+      const confirmRes = await fetch('/api/confirm-payment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ payload: finalPayload }),
+      });
+      const { success } = await confirmRes.json();
+      if (!success) {
+        alert('Payment failed. Bitte erneut versuchen.');
+        return false;
+      }
 
-localStorage.setItem(key, 'true');
+      localStorage.setItem(key, 'true');
+      return true;
 
     };
-const hostAddress = localStorage.getItem("userAddress");
-sendMessage({ type: "new-game", payload: { ...newGame, hostAddress } });
 
-    await payStake();
+    const paid = await payStake();
+    if (!paid) {
+      return;
+    }
+
+    const hostAddress = localStorage.getItem("userAddress");
+    if (!hostAddress) {
+      alert('Wallet address nicht gefunden. Bitte erneut versuchen.');
+      return;
+    }
 
     // A2) WS‑Nachricht senden
     console.log("[create-game] sende WS new-game");
-    sendMessage({ type: "new-game", payload: newGame });
+    sendMessage({ type: "new-game", payload: { ...newGame, hostAddress } });
 
     // A3) Weiterleitung
 //    window.location.href = `/waiting-room/${newGame.id}`;
