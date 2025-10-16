@@ -173,6 +173,7 @@ nextApp.prepare().then(() => {
   // Create HTTP and WebSocket servers on the same port
   const server = http.createServer(app);
   const wss = new WebSocketServer({ noServer: true });
+  const waitingClients = new Set<WebSocket>();
   const upgrade = nextApp.getUpgradeHandler();
 
   server.on('upgrade', (req, socket, head) => {
@@ -233,6 +234,7 @@ nextApp.prepare().then(() => {
 
       // Aktuelle Liste offener Spiele anfordern
       if (data.type === "games-request") {
+        waitingClients.add(ws);
         const openGames = Object.values(games)
           .filter(g => !g.started && g.players.length < 2)
           .map(g => ({ id: g.id, timeControl: g.timeControl, stake: g.stake }));
@@ -261,9 +263,9 @@ nextApp.prepare().then(() => {
           console.error("Failed to create log file", err);
         }
         ws.send(JSON.stringify({ type: "new-game-ack", gameId: id }));
-        // Notify waiting-games
-        wss.clients.forEach(client => {
-          if (client.readyState === WebSocket.OPEN && client !== ws) {
+        waitingClients.delete(ws);
+        waitingClients.forEach(client => {
+          if (client.readyState === WebSocket.OPEN) {
             client.send(JSON.stringify({ type: "new-game", payload: { id, timeControl, stake } }));
           }
         });
@@ -285,6 +287,7 @@ nextApp.prepare().then(() => {
           game.players.push(ws);
           game.blackAddress = data.address;
         }
+        waitingClients.delete(ws);
         // Starte Spiel erst, wenn genau 2 unterschiedliche Clients verbunden sind
         if (!game.started && game.players.length === 2) {
           game.started = true;
@@ -313,8 +316,9 @@ nextApp.prepare().then(() => {
             );
           });
           // Broadcast an alle Sessions: Spiel gestartet
-          wss.clients.forEach((client) => {
-            if (client !== ws && client.readyState === WebSocket.OPEN) {
+          waitingClients.delete(ws);
+          waitingClients.forEach((client) => {
+            if (client.readyState === WebSocket.OPEN) {
               client.send(JSON.stringify({ type: "game-started", gameId: data.gameId }));
             }
           });
@@ -493,6 +497,7 @@ nextApp.prepare().then(() => {
     ws.on("close", () => {
       console.log("WebSocket: Client getrennt");
       playerColors.delete(ws);
+      waitingClients.delete(ws);
 
       for (const id in games) {
         const room = games[id];
@@ -503,7 +508,7 @@ nextApp.prepare().then(() => {
           console.log("Lösche ungenutzten Raum", id);
           delete games[id];
           // broadcast an alle, dass das Spiel entfernt wurde
-          wss.clients.forEach(client => {
+          waitingClients.forEach(client => {
             if (client.readyState === WebSocket.OPEN) {
               client.send(JSON.stringify({ type: "game-cancelled", gameId: id }));
             }
