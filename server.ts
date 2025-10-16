@@ -502,9 +502,6 @@ nextApp.prepare().then(() => {
         if (!room.started && room.players.length === 0) {
           console.log("Lösche ungenutzten Raum", id);
           delete games[id];
-          cancelGameOnChain(id).catch((err: unknown) => {
-            console.error(`cancelGameOnChain(${id}) failed:`, err);
-          });
           // broadcast an alle, dass das Spiel entfernt wurde
           wss.clients.forEach(client => {
             if (client.readyState === WebSocket.OPEN) {
