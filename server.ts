@@ -7,6 +7,7 @@ import fs from "fs";
 import path from "path";
 import http from "http";
 import next from "next";
+import { ethers } from "ethers";
 
 const PORT = parseInt(process.env.PORT || "3000", 10);
 const dev = process.env.NODE_ENV !== "production";
@@ -25,6 +26,35 @@ if (!fs.existsSync(RESULTS_LOG)) {
     RESULTS_LOG,
     "gameId,whitePlayer,blackPlayer,stake,result,timestamp\n"
   );
+}
+
+const ESCROW_ABI = [
+  "function cancelGame(uint256 _gameId) external",
+  "function settleGame(uint256 _gameId, address winner) external",
+];
+
+function toGameId(id: string): bigint {
+  return id.startsWith("0x")
+    ? BigInt(id)
+    : BigInt(ethers.keccak256(ethers.toUtf8Bytes(id)));
+}
+
+async function cancelGameOnChain(idString: string) {
+  const provider = new ethers.JsonRpcProvider(process.env.WORLDCHAIN_RPC_URL!);
+  const signer = new ethers.Wallet(process.env.SETTLER_PRIVATE_KEY!, provider);
+  const contract = new ethers.Contract(process.env.ESCROW_ADDRESS!, ESCROW_ABI, signer);
+  const gameId = toGameId(idString);
+  const tx = await contract.cancelGame(gameId);
+  await tx.wait();
+}
+
+async function settleGameOnChain(idString: string, winnerAddr: string) {
+  const provider = new ethers.JsonRpcProvider(process.env.WORLDCHAIN_RPC_URL!);
+  const signer = new ethers.Wallet(process.env.SETTLER_PRIVATE_KEY!, provider);
+  const contract = new ethers.Contract(process.env.ESCROW_ADDRESS!, ESCROW_ABI, signer);
+  const gameId = toGameId(idString);
+  const tx = await contract.settleGame(gameId, winnerAddr);
+  await tx.wait();
 }
 
 function logMove(gameId: string, message: string) {
@@ -446,31 +476,46 @@ nextApp.prepare().then(() => {
     ws.on("close", () => {
       console.log("WebSocket: Client getrennt");
       playerColors.delete(ws);
+
       for (const id in games) {
         const room = games[id];
         room.players = room.players.filter(p => p !== ws);
-        // Nur ungestartete Räume sofort löschen
+
+        // ungestartetes Spiel, keine Spieler → löschen & cancelGame
         if (!room.started && room.players.length === 0) {
           console.log("Lösche ungenutzten Raum", id);
           delete games[id];
-          // broadcast an alle, dass das Spiel entfernt wurde
           wss.clients.forEach(client => {
             if (client.readyState === WebSocket.OPEN) {
               client.send(JSON.stringify({ type: "game-cancelled", gameId: id }));
             }
           });
-        } else if (room.started && room.players.length > 0) {
-          // Der verbleibende Spieler ist Sieger
+          cancelGameOnChain(id).catch((err: any) => {
+            console.error(`cancelGameOnChain(${id}) failed:`, err);
+          });
+        }
+        // laufendes Spiel, noch ein Spieler und noch nicht beendet
+        else if (room.started && room.players.length > 0 && !room.finished) {
           const remaining = room.players[0];
           const winnerColor = playerColors.get(remaining); // 'white' oder 'black'
           if (remaining.readyState === WebSocket.OPEN) {
-            remaining.send(JSON.stringify({
-              type: "game-over",
-              payload: { winner: winnerColor, reason: "opponent disconnected" },
-            }));
+            remaining.send(
+              JSON.stringify({
+                type: "game-over",
+                payload: { winner: winnerColor, reason: "opponent disconnected" },
+              })
+            );
           }
           room.finished = true;
-          // TODO: hier aus deinem Backend settleGame aufrufen (Escrow-Contract)
+          const winnerAddr =
+            winnerColor === "white" ? room.whiteAddress : room.blackAddress;
+          if (winnerAddr) {
+            settleGameOnChain(id, winnerAddr).catch((err: any) => {
+              console.error(`settleGameOnChain(${id}, ${winnerAddr}) failed:`, err);
+            });
+          } else {
+            console.warn(`Keine Gewinneradresse für Spiel ${id} gefunden.`);
+          }
         }
       }
     });
