@@ -33,25 +33,42 @@ const ESCROW_ABI = [
   "function settleGame(uint256 _gameId, address winner) external",
 ];
 
-function toGameId(id: string): bigint {
-  return id.startsWith("0x")
-    ? BigInt(id)
-    : BigInt(ethers.keccak256(ethers.toUtf8Bytes(id)));
+
+function toGameId(gameId: string): bigint {
+  return gameId.startsWith("0x")
+    ? BigInt(gameId)
+    : BigInt(ethers.keccak256(ethers.toUtf8Bytes(gameId)));
 }
 
 async function cancelGameOnChain(idString: string) {
-  const provider = new ethers.JsonRpcProvider(process.env.WORLDCHAIN_RPC_URL!);
-  const signer = new ethers.Wallet(process.env.SETTLER_PRIVATE_KEY!, provider);
-  const contract = new ethers.Contract(process.env.ESCROW_ADDRESS!, ESCROW_ABI, signer);
+  const rpcUrl = process.env.WORLDCHAIN_RPC_URL;
+  const privateKey = process.env.SETTLER_PRIVATE_KEY;
+  const escrowAddress = process.env.ESCROW_ADDRESS;
+
+  if (!rpcUrl || !privateKey || !escrowAddress) {
+    throw new Error("Missing WORLDCHAIN_RPC_URL, SETTLER_PRIVATE_KEY or ESCROW_ADDRESS env variable");
+  }
+
+  const provider = new ethers.JsonRpcProvider(rpcUrl);
+  const signer = new ethers.Wallet(privateKey, provider);
+  const contract = new ethers.Contract(escrowAddress, ESCROW_ABI, signer);
   const gameId = toGameId(idString);
   const tx = await contract.cancelGame(gameId);
   await tx.wait();
 }
 
 async function settleGameOnChain(idString: string, winnerAddr: string) {
-  const provider = new ethers.JsonRpcProvider(process.env.WORLDCHAIN_RPC_URL!);
-  const signer = new ethers.Wallet(process.env.SETTLER_PRIVATE_KEY!, provider);
-  const contract = new ethers.Contract(process.env.ESCROW_ADDRESS!, ESCROW_ABI, signer);
+  const rpcUrl = process.env.WORLDCHAIN_RPC_URL;
+  const privateKey = process.env.SETTLER_PRIVATE_KEY;
+  const escrowAddress = process.env.ESCROW_ADDRESS;
+
+  if (!rpcUrl || !privateKey || !escrowAddress) {
+    throw new Error("Missing WORLDCHAIN_RPC_URL, SETTLER_PRIVATE_KEY or ESCROW_ADDRESS env variable");
+  }
+
+  const provider = new ethers.JsonRpcProvider(rpcUrl);
+  const signer = new ethers.Wallet(privateKey, provider);
+  const contract = new ethers.Contract(escrowAddress, ESCROW_ABI, signer);
   const gameId = toGameId(idString);
   const tx = await contract.settleGame(gameId, winnerAddr);
   await tx.wait();
@@ -485,6 +502,10 @@ nextApp.prepare().then(() => {
         if (!room.started && room.players.length === 0) {
           console.log("Lösche ungenutzten Raum", id);
           delete games[id];
+          cancelGameOnChain(id).catch((err: unknown) => {
+            console.error(`cancelGameOnChain(${id}) failed:`, err);
+          });
+          // broadcast an alle, dass das Spiel entfernt wurde
           wss.clients.forEach(client => {
             if (client.readyState === WebSocket.OPEN) {
               client.send(JSON.stringify({ type: "game-cancelled", gameId: id }));
@@ -507,14 +528,28 @@ nextApp.prepare().then(() => {
             );
           }
           room.finished = true;
-          const winnerAddr =
-            winnerColor === "white" ? room.whiteAddress : room.blackAddress;
-          if (winnerAddr) {
-            settleGameOnChain(id, winnerAddr).catch((err: any) => {
-              console.error(`settleGameOnChain(${id}, ${winnerAddr}) failed:`, err);
-            });
-          } else {
-            console.warn(`Keine Gewinneradresse für Spiel ${id} gefunden.`);
+          if (winnerColor) {
+            const winnerAddr =
+              winnerColor === "white" ? room.whiteAddress : room.blackAddress;
+            if (winnerAddr) {
+              settleGameOnChain(id, winnerAddr).catch((err: unknown) => {
+                console.error(
+                  `settleGameOnChain(${id}, ${winnerAddr}) failed:`,
+                  err
+                );
+              });
+            } else {
+              console.warn(
+                `Cannot settle game ${id}: winner address for ${winnerColor} missing`
+              );
+            }
+            logGameResult(
+              room.id,
+              "white",
+              "black",
+              room.stake,
+              `${winnerColor} wins by opponent disconnected`
+            );
           }
         }
       }
