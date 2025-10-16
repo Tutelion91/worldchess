@@ -7,6 +7,7 @@ import fs from "fs";
 import path from "path";
 import http from "http";
 import next from "next";
+import { ethers } from "ethers";
 
 const PORT = parseInt(process.env.PORT || "3000", 10);
 const dev = process.env.NODE_ENV !== "production";
@@ -25,6 +26,51 @@ if (!fs.existsSync(RESULTS_LOG)) {
     RESULTS_LOG,
     "gameId,whitePlayer,blackPlayer,stake,result,timestamp\n"
   );
+}
+
+const ESCROW_ABI = [
+  "function cancelGame(uint256 _gameId) external",
+  "function settleGame(uint256 _gameId, address winner) external",
+];
+
+function toGameId(gameId: string): bigint {
+  return gameId.startsWith("0x")
+    ? BigInt(gameId)
+    : BigInt(ethers.keccak256(ethers.toUtf8Bytes(gameId)));
+}
+
+async function cancelGameOnChain(idString: string) {
+  const rpcUrl = process.env.WORLDCHAIN_RPC_URL;
+  const privateKey = process.env.SETTLER_PRIVATE_KEY;
+  const escrowAddress = process.env.ESCROW_ADDRESS;
+
+  if (!rpcUrl || !privateKey || !escrowAddress) {
+    throw new Error("Missing WORLDCHAIN_RPC_URL, SETTLER_PRIVATE_KEY or ESCROW_ADDRESS env variable");
+  }
+
+  const provider = new ethers.JsonRpcProvider(rpcUrl);
+  const signer = new ethers.Wallet(privateKey, provider);
+  const contract = new ethers.Contract(escrowAddress, ESCROW_ABI, signer);
+  const gameId = toGameId(idString);
+  const tx = await contract.cancelGame(gameId);
+  await tx.wait();
+}
+
+async function settleGameOnChain(idString: string, winnerAddr: string) {
+  const rpcUrl = process.env.WORLDCHAIN_RPC_URL;
+  const privateKey = process.env.SETTLER_PRIVATE_KEY;
+  const escrowAddress = process.env.ESCROW_ADDRESS;
+
+  if (!rpcUrl || !privateKey || !escrowAddress) {
+    throw new Error("Missing WORLDCHAIN_RPC_URL, SETTLER_PRIVATE_KEY or ESCROW_ADDRESS env variable");
+  }
+
+  const provider = new ethers.JsonRpcProvider(rpcUrl);
+  const signer = new ethers.Wallet(privateKey, provider);
+  const contract = new ethers.Contract(escrowAddress, ESCROW_ABI, signer);
+  const gameId = toGameId(idString);
+  const tx = await contract.settleGame(gameId, winnerAddr);
+  await tx.wait();
 }
 
 function logMove(gameId: string, message: string) {
@@ -453,6 +499,9 @@ nextApp.prepare().then(() => {
         if (!room.started && room.players.length === 0) {
           console.log("Lösche ungenutzten Raum", id);
           delete games[id];
+          cancelGameOnChain(id).catch((err: unknown) => {
+            console.error(`cancelGameOnChain(${id}) failed:`, err);
+          });
           // broadcast an alle, dass das Spiel entfernt wurde
           wss.clients.forEach(client => {
             if (client.readyState === WebSocket.OPEN) {
@@ -470,7 +519,29 @@ nextApp.prepare().then(() => {
             }));
           }
           room.finished = true;
-          // TODO: hier aus deinem Backend settleGame aufrufen (Escrow-Contract)
+          if (winnerColor) {
+            const winnerAddr =
+              winnerColor === "white" ? room.whiteAddress : room.blackAddress;
+            if (winnerAddr) {
+              settleGameOnChain(id, winnerAddr).catch((err: unknown) => {
+                console.error(
+                  `settleGameOnChain(${id}, ${winnerAddr}) failed:`,
+                  err
+                );
+              });
+            } else {
+              console.warn(
+                `Cannot settle game ${id}: winner address for ${winnerColor} missing`
+              );
+            }
+            logGameResult(
+              room.id,
+              "white",
+              "black",
+              room.stake,
+              `${winnerColor} wins by opponent disconnected`
+            );
+          }
         }
       }
     });
