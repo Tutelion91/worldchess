@@ -46,7 +46,7 @@ export default function FAQPage() {
   const pay = async (amountWLD: number) => {
     setStatus("Starte Zahlung ...");
 
-    const init = await fetch("/api/initiate-payment", { method: "POST" });
+    const init = await fetch("/api/initiate-pay", { method: "POST" });
     const { id: reference } = await init.json();
 
     const input: PayCommandInput = {
