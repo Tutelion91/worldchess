@@ -1,7 +1,7 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(req: NextRequest) {
-  // Body parsen – es kann entweder { payload: {...} } oder {...} sein
+  // Eingehenden Body lesen – es kann { payload: {...} } oder {...} sein
   let body: any;
   try {
     body = await req.json();
@@ -10,8 +10,11 @@ export async function POST(req: NextRequest) {
   }
   const payload = body.payload ?? body;
 
-  // Prüfen, ob transaction_id und reference existieren
-  if (!payload?.transaction_id || !payload?.reference) {
+  // Transaktions-ID und Referenz aus beiden möglichen Schreibweisen ziehen
+  const transactionId = payload.transaction_id ?? payload.transactionId;
+  const reference     = payload.reference      ?? payload.referenceId;
+
+  if (!transactionId || !reference) {
     return NextResponse.json({ success: false }, { status: 400 });
   }
 
@@ -22,16 +25,24 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const res = await fetch(
-      `https://developer.worldcoin.org/api/v2/minikit/transaction/${payload.transaction_id}?app_id=${appId}`,
-      { headers: { Authorization: `Bearer ${key}` } }
-    );
+    // Laut Worldcoin-Dokumentation muss type=pay mitgegeben werden,
+    // sonst liefert die API einen 400-Fehler.
+    const query = new URLSearchParams({
+      app_id: appId,
+      type: 'pay',
+    });
+    const url = `https://developer.worldcoin.org/api/v2/minikit/transaction/${transactionId}?${query.toString()}`;
+
+    const res = await fetch(url, {
+      headers: { Authorization: `Bearer ${key}` },
+    });
     if (!res.ok) {
       return NextResponse.json({ success: false }, { status: res.status });
     }
+
     const tx = await res.json();
-    // Erfolgreich, wenn die Referenz übereinstimmt und kein Fehlerstatus vorliegt
-    if (tx?.reference === payload.reference && tx?.status !== "failed") {
+    // Erfolg nur, wenn Referenz übereinstimmt und kein Fehlerstatus vorliegt
+    if (tx?.reference === reference && tx?.status !== 'failed') {
       return NextResponse.json({ success: true });
     }
     return NextResponse.json({ success: false });
@@ -39,4 +50,3 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: false }, { status: 500 });
   }
 }
-
