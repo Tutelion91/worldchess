@@ -43,35 +43,69 @@ export default function FAQPage() {
   }, []);
 
   // 0,3 WLD zahlen + Backend verifizieren lassen
-  const pay = async (amountWLD: number) => {
-    setStatus("Starte Zahlung ...");
 
-    const init = await fetch("/api/initiate-pay", { method: "POST" });
-    const { id: reference } = await init.json();
+const pay = async (amountWLD: number) => {
+  setStatus("Starte Zahlung ...");
 
-    const input: PayCommandInput = {
-      reference,
-      to: PAY_TO,
-      tokens: [
-        {
-          symbol: Tokens.WLD,
-          token_amount: tokenToDecimals(amountWLD, Tokens.WLD).toString(),
-        },
-      ],
-      description: `Worldchess Test Stake ${amountWLD} WLD`,
-    };
+  // A) initiate-pay
+  console.log("[FAQ/pay] STEP A: POST /api/initiate-pay");
+  const initRes = await fetch("/api/initiate-pay", { method: "POST" });
+  const initText = await initRes.text();
+  console.log("[FAQ/pay] /api/initiate-pay raw response:", initText);
+  let initJson: any;
+  try {
+    initJson = JSON.parse(initText);
+  } catch (e) {
+    throw new Error("initiate-pay: invalid JSON");
+  }
+  const reference = initJson?.id;
+  console.log("[FAQ/pay] reference =", reference, "PAY_TO =", PAY_TO);
 
-    const { finalPayload } = await MiniKit.commandsAsync.pay(input);
+  if (!reference) {
+    throw new Error("initiate-pay: missing reference id");
+  }
 
-    // confirmPayment: sende {payload: finalPayload}, wie von deinem Endpunkt erwartet
-    const confirm = await fetch("/api/confirm-payment", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ payload: finalPayload }),
-    });
-    const res = await confirm.json();
-    if (!res?.success) throw new Error("Payment verification failed");
+  // B) MiniKit pay
+  console.log("[FAQ/pay] STEP B: MiniKit.commandsAsync.pay()");
+  const input: PayCommandInput = {
+    reference,
+    to: PAY_TO,
+    tokens: [
+      {
+        symbol: Tokens.WLD,
+        token_amount: tokenToDecimals(amountWLD, Tokens.WLD).toString(),
+      },
+    ],
+    description: `Worldchess Test Stake ${amountWLD} WLD`,
   };
+
+  const { finalPayload } = await MiniKit.commandsAsync.pay(input);
+  console.log("[FAQ/pay] finalPayload from MiniKit:", finalPayload);
+
+  // C) confirm-payment
+  console.log("[FAQ/pay] STEP C: POST /api/confirm-payment");
+  const confirmRes = await fetch("/api/confirm-payment", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    // send raw finalPayload (the route supports both {payload} and raw)
+    body: JSON.stringify(finalPayload),
+  });
+  const confirmText = await confirmRes.text();
+  console.log("[FAQ/pay] /api/confirm-payment raw response:", confirmText);
+  let confirmJson: any;
+  try {
+    confirmJson = JSON.parse(confirmText);
+  } catch (e) {
+    throw new Error("confirm-payment: invalid JSON response");
+  }
+
+  if (!confirmJson?.success) {
+    console.error("[FAQ/pay] confirm FAILED");
+    throw new Error("Payment verification failed");
+  }
+
+  console.log("[FAQ/pay] confirm SUCCESS");
+};
 
   const requireAddrAndId = () => {
     if (!userAddress) {
