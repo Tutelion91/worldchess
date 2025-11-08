@@ -1,51 +1,60 @@
+/* Eine Kachel füllt exakt ihr Grid-Feld */
 .tile {
+  position: relative;                  /* nötig für die ::before-Highlights */
   display: grid;
-  place-content: center;
-  width: 100px;
-  height: 100px;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  box-sizing: border-box;
 }
 
+/* Die Figur als Hintergrundgrafik der .chess-piece-Box */
 .tile .chess-piece {
-  width: 100px;
-  height: 100px;
+  width: 100%;
+  height: 100%;
   background-repeat: no-repeat;
   background-position: center;
-  background-size: 100px;
+  /* Wichtig: skaliert die Grafik proportional INS Feld */
+  background-size: contain;
 }
 
-.tile .chess-piece:hover {
-  cursor: grab;
-}
-
-.tile .chess-piece:active {
-  cursor: grabbing;
-}
-
-.black-tile {
-  background-color: #779556;
-}
-
-.white-tile {
-  background-color: #ebecd0;
-}
-
+/* (Falls du irgendwo <img> verwendest, so skaliert es ebenfalls passend) */
 .tile img {
-  width: 80px;
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  pointer-events: none; /* kein versehentliches Bild-Dragging */
 }
 
+/* Brettfarben */
+.black-tile { background-color: #779556; }
+.white-tile { background-color: #ebecd0; }
+
+/* Highlights: Prozent statt fixe Pixel, zentriert */
 .tile-highlight:not(.chess-piece-tile)::before {
-  content: " ";
-  width: 24px;
-  height: 24px;
+  content: "";
+  position: absolute;
+  top: 50%; left: 50%;
+  width: 28%;
+  height: 28%;
+  transform: translate(-50%, -50%);
   border-radius: 50%;
   background-color: rgba(0, 0, 0, 0.4);
 }
 
 .tile-highlight.chess-piece-tile::before {
+  content: "";
   position: absolute;
-  content: " ";
-  width: 90px;
-  height: 90px;
-  border: 5px solid rgba(0, 0, 0, 0.4);
+  top: 50%; left: 50%;
+  width: 90%;
+  height: 90%;
+  transform: translate(-50%, -50%);
+  border: 4px solid rgba(0, 0, 0, 0.4);
   border-radius: 50%;
 }
+
