@@ -1,44 +1,75 @@
-#chessboard {
-  display: grid;
-  grid-template-columns: repeat(8, 1fr);
-  grid-template-rows: repeat(8, 1fr);
-  width: min(100vw, 100vh);
-  height: min(100vw, 100vh);
-  max-width: 800px;
-  max-height: 800px;
+/* --- Basis: Seite ohne Scrollen, sauberer Viewport --- */
+html, body {
+  height: 50%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;          /* verhindert Scrollen */
+  overscroll-behavior: none; /* kein Gummiscrollen auf Mobil */
 }
 
+/* --- Schachbrett: immer quadratisch & kleiner als Viewport --- */
+#chessboard {
+  box-sizing: border-box;
+
+  /* Quadrat über aspect-ratio, Höhe aus der Breite berechnet */
+  width: min(9vmin, 70px); /* <= hier kannst du die Obergrenze anpassen */
+  aspect-ratio: 1 / 1;
+  height: auto;
+
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  grid-template-rows:    repeat(8, 1fr);
+
+  /* Interaktion: Wischen/Markieren verhindern */
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+
+  /* zentrieren */
+  margin: 0 auto;
+}
+
+/* Kleine Phones: noch etwas großzügiger nutzen */
+@media (max-width: 480px) {
+  #chessboard {
+    width: 92vmin;          /* leicht größer auf sehr kleinen Screens */
+    max-width: 700px;       /* Obergrenze bleibt */
+  }
+}
+
+/* --- Modal Overlay (an den Viewport pinnen) --- */
 .modal {
-  position: absolute;
-  top: 0px;
-  right: 0px;
-  bottom: 0px;
-  left: 0px;
+  position: fixed; /* am Viewport ausrichten */
+  top: 0; right: 0; bottom: 0; left: 0;
 }
 
 .modal.hidden {
   display: none;
 }
 
+/* --- Modal Content responsiv --- */
 .modal > .modal-body {
   position: absolute;
-  top: 50%;
-  left: 50%;
+  inset: 50% auto auto 50%;
   transform: translate(-50%, -50%);
   display: flex;
   align-items: center;
   justify-content: space-around;
   gap: 24px;
+
   width: min(90vw, 800px);
   max-height: 90vh;
   padding: 24px;
   background-color: rgba(127, 127, 127, 0.8);
   box-sizing: border-box;
+  border-radius: 12px;
+  backdrop-filter: blur(2px);
 }
 
 .modal > .modal-body > img {
-  height: 120px;
-  padding: 20px;
+  height: 96px;
+  max-width: 30vw;
+  padding: 16px;
   border-radius: 50%;
 }
 
@@ -50,21 +81,22 @@
 .modal > .modal-body > .checkmate-body {
   display: flex;
   flex-direction: column;
-  gap: 48px;
+  gap: 32px;
   flex: 1;
   min-width: 0;
 }
 
 .modal > .modal-body > .checkmate-body > span {
-  font-size: 32px;
+  font-size: clamp(18px, 4vw, 32px);
+  line-height: 1.2;
 }
 
 .modal > .modal-body > .checkmate-body > button {
   background-color: #779556;
   border: none;
-  border-radius: 8px;
-  padding: 24px 48px;
-  font-size: 32px;
+  border-radius: 10px;
+  padding: clamp(12px, 3vw, 24px) clamp(20px, 5vw, 48px);
+  font-size: clamp(16px, 4vw, 32px);
   color: white;
 }
 
@@ -72,5 +104,17 @@
   cursor: pointer;
 }
 
-
+/* --- Sehr kleine Screens: Modals kompakter --- */
+@media (max-width: 480px) {
+  .modal > .modal-body {
+    gap: 16px;
+    padding: 16px;
+    width: 92vw;
+    max-height: 88vh;
+  }
+  .modal > .modal-body > img {
+    height: 72px;
+    padding: 12px;
+  }
+}
 

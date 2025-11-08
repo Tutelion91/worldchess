@@ -33,6 +33,12 @@ export default function Page() {
         >
           Wartende Spiele
         </Link>
+        <Link
+  href="/singleplayer"
+  className="px-6 py-3 bg-blue-600 hover:bg-blue-700 rounded text-white font-semibold"
+>
+  Singleplayer
+</Link>
         <button
           onClick={() => {
             if (typeof window !== 'undefined') {
