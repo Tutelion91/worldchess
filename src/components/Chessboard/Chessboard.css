@@ -3,7 +3,7 @@
   width: min(96vmin, 310px);  /* Deckel nach Geschmack anpassen */
   aspect-ratio: 1 / 1;
   height: auto;
-
+  position: relative;
   display: grid;
   /* verhindert, dass Inhalte die Zellen aufziehen */
   grid-template-columns: repeat(8, minmax(0, 1fr));
