@@ -39,6 +39,16 @@ import ChessClock from "../Clock/ChessClock";
 
 import { parseFen } from "@/utils/fen";
 import { MiniKit, tokenToDecimals, Tokens, PayCommandInput } from "@worldcoin/minikit-js";
+import {
+  AlertDialog,
+  AlertDialogClose,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  Button,
+} from "@worldcoin/mini-apps-ui-kit-react";
 
 interface RefereeProps {
   initialGame: {
@@ -71,6 +81,9 @@ export default function Referee({ initialGame, playerColor, finishGame }: Refere
   const stalemateModalRef = useRef<HTMLDivElement>(null);
   const checkmateModalRef = useRef<HTMLDivElement>(null);
   const [gameOver, setGameOver] = useState(false);
+  const [resignDialogOpen, setResignDialogOpen] = useState(false);
+  const [offerDrawDialogOpen, setOfferDrawDialogOpen] = useState(false);
+  const [incomingDrawDialogOpen, setIncomingDrawDialogOpen] = useState(false);
   const myTeam: TeamType = playerColor === "white" ? TeamType.OUR : TeamType.OPPONENT;
 
   function handleTimeout(winner: TeamType) {
@@ -188,8 +201,7 @@ useEffect(() => {
   const unsubGameOver = onGameOver(handleGameOver);
   const unsubDrawOffer = onDrawOffer(() => {
     if (typeof window === "undefined") return;
-    const accept = window.confirm("Do you want to accept a draw?");
-    respondDraw(initialGame.id, accept);
+    setIncomingDrawDialogOpen(true);
   });
   const unsubDrawDeclined = onDrawDeclined(() => {
     if (typeof window === "undefined") return;
@@ -433,19 +445,26 @@ function isStalemate(board: Board, team: TeamType): boolean {
   }
 
   function handleResign() {
-    if (typeof window === "undefined") return;
-    const confirmed = window.confirm("Aufgeben?");
-    if (confirmed) {
-      sendResign(initialGame.id);
-    }
+    setResignDialogOpen(true);
+  }
+
+  function confirmResign() {
+    sendResign(initialGame.id);
+    setResignDialogOpen(false);
   }
 
   function handleOfferDraw() {
-    if (typeof window === "undefined") return;
-    const confirmed = window.confirm("Do you want to offer a draw?");
-    if (confirmed) {
-      sendOfferDraw(initialGame.id);
-    }
+    setOfferDrawDialogOpen(true);
+  }
+
+  function confirmOfferDraw() {
+    sendOfferDraw(initialGame.id);
+    setOfferDrawDialogOpen(false);
+  }
+
+  function handleIncomingDrawResponse(accept: boolean) {
+    respondDraw(initialGame.id, accept);
+    setIncomingDrawDialogOpen(false);
   }
 
   return (
@@ -501,6 +520,85 @@ function isStalemate(board: Board, team: TeamType): boolean {
     </div>
   </div>
 </div>
+
+      <AlertDialog open={resignDialogOpen} onOpenChange={setResignDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Aufgeben</AlertDialogTitle>
+            <AlertDialogDescription>Aufgeben?</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogClose asChild>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => setResignDialogOpen(false)}
+              >
+                Cancel
+              </Button>
+            </AlertDialogClose>
+            <AlertDialogClose asChild>
+              <Button type="button" onClick={confirmResign}>
+                Continue
+              </Button>
+            </AlertDialogClose>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={offerDrawDialogOpen} onOpenChange={setOfferDrawDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Offer draw</AlertDialogTitle>
+            <AlertDialogDescription>Do you want to offer a draw?</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogClose asChild>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => setOfferDrawDialogOpen(false)}
+              >
+                Cancel
+              </Button>
+            </AlertDialogClose>
+            <AlertDialogClose asChild>
+              <Button type="button" onClick={confirmOfferDraw}>
+                Continue
+              </Button>
+            </AlertDialogClose>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={incomingDrawDialogOpen}
+        onOpenChange={setIncomingDrawDialogOpen}
+        dismissible={false}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Draw offer</AlertDialogTitle>
+            <AlertDialogDescription>Do you want to accept a draw?</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogClose asChild>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => handleIncomingDrawResponse(false)}
+              >
+                Cancel
+              </Button>
+            </AlertDialogClose>
+            <AlertDialogClose asChild>
+              <Button type="button" onClick={() => handleIncomingDrawResponse(true)}>
+                Continue
+              </Button>
+            </AlertDialogClose>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <Chessboard playMove={playMove} pieces={board.pieces} playerColor={playerColor} />
     </>

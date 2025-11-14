@@ -1,4 +1,5 @@
 import './globals.css'
+import '@worldcoin/mini-apps-ui-kit-react/dist/globals.css';
 import type { ReactNode } from 'react'
 import { MiniKitProvider } from '@/components/MiniKitProvider'
 
