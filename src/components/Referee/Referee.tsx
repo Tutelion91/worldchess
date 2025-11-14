@@ -470,7 +470,7 @@ function isStalemate(board: Board, team: TeamType): boolean {
   return (
     <>
       <p style={{ color: "white", fontSize: "24px", textAlign: "center" }}>
-        Total turns: {board.totalTurns}
+        Total turns: {Math.max(board.totalTurns -1,0)}
       </p>
       <ChessClock
         timeControl={initialGame.timeControl}
