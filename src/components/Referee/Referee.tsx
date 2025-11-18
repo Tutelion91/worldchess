@@ -32,13 +32,13 @@ import {
   requestState,
   onDrawOffer,
   onDrawDeclined,
+  onSettlementComplete,
 } from "@/websocket";
 import { symbolToPieceType } from "@/utils/pieceSymbols";
 import { isServerEnPassant } from "@/utils/serverMove";
 import ChessClock from "../Clock/ChessClock";
 
 import { parseFen } from "@/utils/fen";
-import { MiniKit, tokenToDecimals, Tokens, PayCommandInput } from "@worldcoin/minikit-js";
 import {
   AlertDialog,
   AlertDialogClose,
@@ -84,6 +84,13 @@ export default function Referee({ initialGame, playerColor, finishGame }: Refere
   const [resignDialogOpen, setResignDialogOpen] = useState(false);
   const [offerDrawDialogOpen, setOfferDrawDialogOpen] = useState(false);
   const [incomingDrawDialogOpen, setIncomingDrawDialogOpen] = useState(false);
+  const [drawDeclinedDialogOpen, setDrawDeclinedDialogOpen] = useState(false);
+  const [errorDialogMessage, setErrorDialogMessage] = useState<string | null>(null);
+  const [isSettling, setIsSettling] = useState(false);
+  const [settlementDialogOpen, setSettlementDialogOpen] = useState(false);
+  const [settlementResult, setSettlementResult] = useState<
+    { success: boolean; txHash?: string; error?: string; winner: string | null; gameId: string } | null
+  >(null);
   const myTeam: TeamType = playerColor === "white" ? TeamType.OUR : TeamType.OPPONENT;
 
   function handleTimeout(winner: TeamType) {
@@ -135,48 +142,16 @@ useEffect(() => {
     setBoard(() => parseFen(state.fen));
   };
 
-  const distributeWinnings = async (winner: string | null) => {
-    if (typeof window === "undefined") return;
-    const address = localStorage.getItem("userAddress");
-    if (!address) return;
-
-    const res = await fetch('/api/initiate-pay', { method: 'POST' });
-    const { id: reference } = await res.json();
-
-    let amount = initialGame.stake * 0.95;
-    if (winner && winner === playerColor) {
-      amount = initialGame.stake * 2 * 0.95;
-    } else if (winner) {
-      return; // loser sends nothing
-    }
-
-    const payload: PayCommandInput = {
-      reference,
-      to: address,
-      tokens: [
-        {
-          symbol: Tokens.WLD,
-          token_amount: tokenToDecimals(amount, Tokens.WLD).toString(),
-        },
-      ],
-      description: `Payout for game ${initialGame.id}`,
-    };
-
-    if (!MiniKit.isInstalled()) return;
-
-    const { finalPayload } = await MiniKit.commandsAsync.pay(payload);
-
-    await fetch('/api/confirm-payment', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(finalPayload),
-    });
-  };
-
   const handleError = (msg: any) => {
     // Refresh the board state in case we desynced
     requestState(initialGame.id);
-    alert(msg.message || "An error occurred");
+    setErrorDialogMessage(msg.message || "An error occurred");
+  };
+
+  const handleSettlement = () => {
+    setIsSettling(true);
+    setSettlementDialogOpen(false);
+    setSettlementResult(null);
   };
 
   const handleGameOver = (result: { winner: string | null; reason: string }) => {
@@ -192,7 +167,7 @@ useEffect(() => {
       return clone;
     });
     setGameOver(true);
-    distributeWinnings(result.winner).finally(() => finishGame());
+    handleSettlement();
   };
 
   const unsubMove = onMove(applyMove);
@@ -205,7 +180,13 @@ useEffect(() => {
   });
   const unsubDrawDeclined = onDrawDeclined(() => {
     if (typeof window === "undefined") return;
-    alert("Draw offer declined");
+    setDrawDeclinedDialogOpen(true);
+  });
+  const unsubSettlement = onSettlementComplete(payload => {
+    if (payload.gameId !== initialGame.id) return;
+    setIsSettling(false);
+    setSettlementResult(payload);
+    setSettlementDialogOpen(true);
   });
 
   return () => {
@@ -215,6 +196,7 @@ useEffect(() => {
     unsubGameOver();
     unsubDrawOffer();
     unsubDrawDeclined();
+    unsubSettlement();
   };
 }, []);
 
@@ -467,6 +449,22 @@ function isStalemate(board: Board, team: TeamType): boolean {
     setIncomingDrawDialogOpen(false);
   }
 
+  const handleSettlementDialogOpenChange = (open: boolean) => {
+    setSettlementDialogOpen(open);
+    if (!open) {
+      if (settlementResult?.success) {
+        finishGame();
+      }
+      setSettlementResult(null);
+    }
+  };
+
+  const handleErrorDialogOpenChange = (open: boolean) => {
+    if (!open) {
+      setErrorDialogMessage(null);
+    }
+  };
+
   return (
     <>
       <p style={{ color: "white", fontSize: "24px", textAlign: "center" }}>
@@ -595,6 +593,71 @@ function isStalemate(board: Board, team: TeamType): boolean {
               <Button type="button" onClick={() => handleIncomingDrawResponse(true)}>
                 Continue
               </Button>
+            </AlertDialogClose>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={drawDeclinedDialogOpen} onOpenChange={setDrawDeclinedDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Draw offer declined</AlertDialogTitle>
+            <AlertDialogDescription>Your opponent declined the draw offer.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogClose asChild>
+              <Button type="button">OK</Button>
+            </AlertDialogClose>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!errorDialogMessage} onOpenChange={handleErrorDialogOpenChange}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Connection error</AlertDialogTitle>
+            <AlertDialogDescription>
+              {errorDialogMessage || "An unexpected error occurred."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogClose asChild>
+              <Button type="button">OK</Button>
+            </AlertDialogClose>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={isSettling} dismissible={false}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Settlement in progress</AlertDialogTitle>
+            <AlertDialogDescription>
+              We are settling your game on-chain. Please wait…
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={settlementDialogOpen && !!settlementResult}
+        onOpenChange={handleSettlementDialogOpenChange}
+        dismissible={false}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {settlementResult?.success ? "Settlement complete" : "Settlement failed"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {settlementResult?.success
+                ? `Payout successful! Tx: ${settlementResult.txHash}`
+                : `Settlement failed: ${settlementResult?.error || "Unknown error"}`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogClose asChild>
+              <Button type="button">Continue</Button>
             </AlertDialogClose>
           </AlertDialogFooter>
         </AlertDialogContent>

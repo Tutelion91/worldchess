@@ -31,6 +31,7 @@ if (!fs.existsSync(RESULTS_LOG)) {
 const ESCROW_ABI = [
   "function cancelGame(uint256 _gameId) external",
   "function settleGame(uint256 _gameId, address winner) external",
+  "function settleDraw(uint256 _gameId) external",
 ];
 
 
@@ -71,7 +72,26 @@ async function settleGameOnChain(idString: string, winnerAddr: string) {
   const contract = new ethers.Contract(escrowAddress, ESCROW_ABI, signer);
   const gameId = toGameId(idString);
   const tx = await contract.settleGame(gameId, winnerAddr);
-  await tx.wait();
+  const receipt = await tx.wait();
+  return receipt?.hash ?? tx.hash;
+}
+
+async function settleDrawOnChain(idString: string) {
+  const rpcUrl = process.env.WORLDCHAIN_RPC_URL;
+  const privateKey = process.env.SETTLER_PRIVATE_KEY;
+  const escrowAddress = process.env.ESCROW_ADDRESS;
+
+  if (!rpcUrl || !privateKey || !escrowAddress) {
+    throw new Error("Missing WORLDCHAIN_RPC_URL, SETTLER_PRIVATE_KEY or ESCROW_ADDRESS env variable");
+  }
+
+  const provider = new ethers.JsonRpcProvider(rpcUrl);
+  const signer = new ethers.Wallet(privateKey, provider);
+  const contract = new ethers.Contract(escrowAddress, ESCROW_ABI, signer);
+  const gameId = toGameId(idString);
+  const tx = await contract.settleDraw(gameId);
+  const receipt = await tx.wait();
+  return receipt?.hash ?? tx.hash;
 }
 
 function logMove(gameId: string, message: string) {
@@ -104,6 +124,8 @@ nextApp.prepare().then(() => {
   // app.use(express.json()); // NICHT verwenden (Next Response-Objekt)
 
   // In-Memory Speicher für offene Spiele
+  type PlayerKey = 'player1' | 'player2';
+
   interface Game {
     id: string;
     players: WebSocket[];
@@ -117,12 +139,113 @@ nextApp.prepare().then(() => {
       to: { x: number; y: number };
       promotion?: string;
     }>;
-    whiteAddress?: string;
-    blackAddress?: string;
+    player1Address?: string;
+    player2Address?: string;
+    white?: PlayerKey;
+    black?: PlayerKey;
   }
   const games: Record<string, Game> = {};
   // Mapping from websocket connections to the assigned player color
   const playerColors = new Map<WebSocket, 'white' | 'black'>();
+
+  type GameResult = { winner: 'white' | 'black' | null; reason: string };
+
+  function getAddressForPlayer(game: Game, playerKey?: PlayerKey): string | undefined {
+    if (playerKey === 'player1') {
+      return game.player1Address;
+    }
+    if (playerKey === 'player2') {
+      return game.player2Address;
+    }
+    return undefined;
+  }
+
+  function getAddressForColor(game: Game, color: 'white' | 'black'): string | undefined {
+    const playerKey = color === 'white' ? game.white : game.black;
+    return getAddressForPlayer(game, playerKey);
+  }
+
+  function broadcastGameOver(game: Game, result: GameResult) {
+    game.players.forEach(player => {
+      if (player.readyState === WebSocket.OPEN) {
+        player.send(
+          JSON.stringify({
+            type: "game-over",
+            payload: result,
+          })
+        );
+      }
+    });
+  }
+
+  function broadcastSettlementComplete(
+    game: Game,
+    payload: { success: boolean; txHash?: string; error?: string; winner: 'white' | 'black' | null }
+  ) {
+    const message = JSON.stringify({
+      type: "settlement-complete",
+      payload: { ...payload, gameId: game.id },
+    });
+    game.players.forEach(player => {
+      if (player.readyState === WebSocket.OPEN) {
+        player.send(message);
+      }
+    });
+  }
+
+  async function triggerSettlement(game: Game, result: GameResult) {
+    try {
+      let txHash: string | undefined;
+      if (result.winner) {
+        const winnerAddr = getAddressForColor(game, result.winner);
+        if (!winnerAddr) {
+          throw new Error(
+            `Missing ${result.winner} address for game ${game.id}`
+          );
+        }
+        txHash = await settleGameOnChain(game.id, winnerAddr);
+      } else {
+        txHash = await settleDrawOnChain(game.id);
+      }
+      broadcastSettlementComplete(game, {
+        success: true,
+        txHash,
+        winner: result.winner,
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Settlement failed";
+      console.error(`Settlement for game ${game.id} failed:`, err);
+      broadcastSettlementComplete(game, {
+        success: false,
+        error: message,
+        winner: result.winner,
+      });
+    }
+  }
+
+  async function finalizeGame(game: Game, result: GameResult) {
+    if (game.finished) {
+      return;
+    }
+    game.finished = true;
+    broadcastGameOver(game, result);
+    const resultText =
+      result.winner !== null ? `${result.winner} wins by ${result.reason}` : result.reason;
+    logGameResult(
+      game.id,
+      getAddressForColor(game, 'white') || "unknown",
+      getAddressForColor(game, 'black') || "unknown",
+      game.stake,
+      resultText
+    );
+    await triggerSettlement(game, result);
+  }
+
+  function safeFinalizeGame(game: Game, result: GameResult) {
+    finalizeGame(game, result).catch(err => {
+      console.error(`Failed to finalize game ${game.id}:`, err);
+    });
+  }
 
   function coordsToAlgebraic(x: number, y: number): string {
     const files = "abcdefgh";
@@ -254,7 +377,7 @@ nextApp.prepare().then(() => {
           finished: false,
           board: new Chess(),
           moves: [],
-          whiteAddress: hostAddress,
+          player1Address: hostAddress,
         };
         // Create log file for this game
         try {
@@ -285,7 +408,7 @@ nextApp.prepare().then(() => {
             return;
           }
           game.players.push(ws);
-          game.blackAddress = data.address;
+          game.player2Address = data.address;
         }
         waitingClients.delete(ws);
         // Starte Spiel erst, wenn genau 2 unterschiedliche Clients verbunden sind
@@ -293,14 +416,15 @@ nextApp.prepare().then(() => {
           game.started = true;
           const colors = ['white','black'] as Array<'white'|'black'>;
           colors.sort(() => Math.random() - 0.5);
-          if (colors[0] === 'black') {
-            const temp = game.whiteAddress;
-            game.whiteAddress = game.blackAddress;
-            game.blackAddress = temp;
-          }
           game.players.forEach((player, idx) => {
             const color = colors[idx];
             playerColors.set(player, color);
+            const playerKey: PlayerKey = idx === 0 ? 'player1' : 'player2';
+            if (color === 'white') {
+              game.white = playerKey;
+            } else {
+              game.black = playerKey;
+            }
             player.send(
               JSON.stringify({
                 type: "start",
@@ -334,25 +458,12 @@ nextApp.prepare().then(() => {
             return;
           }
           const resigningColor = playerColors.get(ws);
-          const winner = resigningColor === "white" ? "black" : "white";
-          game.finished = true;
-          game.players.forEach(player => {
-            if (player.readyState === WebSocket.OPEN) {
-              player.send(
-                JSON.stringify({
-                  type: "game-over",
-                  payload: { winner, reason: "resignation" }
-                })
-              );
-            }
-          });
-          logGameResult(
-            game.id,
-            "white",
-            "black",
-            game.stake,
-            `${winner} wins by resignation`
-          );
+          if (!resigningColor) {
+            ws.send(JSON.stringify({ type: "error", message: "Cannot determine resigning player" }));
+            return;
+          }
+          const winner: 'white' | 'black' = resigningColor === "white" ? "black" : "white";
+          safeFinalizeGame(game, { winner, reason: "resignation" });
         }
         return;
       }
@@ -375,24 +486,7 @@ nextApp.prepare().then(() => {
         const game = games[data.gameId];
         if (game && !game.finished) {
           if (data.accept) {
-            game.finished = true;
-            game.players.forEach(player => {
-              if (player.readyState === WebSocket.OPEN) {
-                player.send(
-                  JSON.stringify({
-                    type: "game-over",
-                    payload: { winner: null, reason: "draw" }
-                  })
-                );
-              }
-            });
-            logGameResult(
-              game.id,
-              "white",
-              "black",
-              game.stake,
-              "draw accepted"
-            );
+            safeFinalizeGame(game, { winner: null, reason: "draw" });
           } else {
             game.players.forEach(player => {
               if (player !== ws && player.readyState === WebSocket.OPEN) {
@@ -464,28 +558,7 @@ nextApp.prepare().then(() => {
               } else {
                 reason = "draw";
               }
-              game.finished = true;
-              game.players.forEach(player => {
-                if (player.readyState === WebSocket.OPEN) {
-                  player.send(
-                    JSON.stringify({
-                      type: "game-over",
-                      payload: { winner, reason }
-                    })
-                  );
-                }
-              });
-              const resultText =
-                winner !== null
-                  ? `${winner} wins by ${reason}`
-                  : reason;
-              logGameResult(
-                game.id,
-                "white",
-                "black",
-                game.stake,
-                resultText
-              );
+              safeFinalizeGame(game, { winner, reason });
             }
           } else {
             ws.send(JSON.stringify({ type: "error", message: "Invalid move" }));
@@ -521,38 +594,14 @@ nextApp.prepare().then(() => {
         else if (room.started && room.players.length > 0 && !room.finished) {
           const remaining = room.players[0];
           const winnerColor = playerColors.get(remaining); // 'white' oder 'black'
-          if (remaining.readyState === WebSocket.OPEN) {
-            remaining.send(
-              JSON.stringify({
-                type: "game-over",
-                payload: { winner: winnerColor, reason: "opponent disconnected" },
-              })
-            );
+          if (!winnerColor) {
+            console.warn(`Cannot determine winner color for disconnect in game ${id}`);
+            continue;
           }
-          room.finished = true;
-          if (winnerColor) {
-            const winnerAddr =
-              winnerColor === "white" ? room.whiteAddress : room.blackAddress;
-            if (winnerAddr) {
-              settleGameOnChain(id, winnerAddr).catch((err: unknown) => {
-                console.error(
-                  `settleGameOnChain(${id}, ${winnerAddr}) failed:`,
-                  err
-                );
-              });
-            } else {
-              console.warn(
-                `Cannot settle game ${id}: winner address for ${winnerColor} missing`
-              );
-            }
-            logGameResult(
-              room.id,
-              "white",
-              "black",
-              room.stake,
-              `${winnerColor} wins by opponent disconnected`
-            );
-          }
+          safeFinalizeGame(room, {
+            winner: winnerColor,
+            reason: "opponent disconnected",
+          });
         }
       }
     });
