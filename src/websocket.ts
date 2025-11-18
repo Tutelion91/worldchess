@@ -141,6 +141,16 @@ export function onGameOver(
   });
 }
 
+export function onSettlementComplete(
+  callback: (payload: { success: boolean; txHash?: string; error?: string; winner: string | null; gameId: string }) => void
+): () => void {
+  return onMessage((msg) => {
+    if (msg.type === "settlement-complete") {
+      callback(msg.payload);
+    }
+  });
+}
+
 export function onState(callback: (state: any) => void): () => void {
   return onMessage((msg) => {
     if (msg.type === "state") {
