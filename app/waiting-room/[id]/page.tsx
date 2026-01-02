@@ -83,7 +83,14 @@ export default function WaitingRoom() {
         }
 
         hasJoinedRef.current = true;
-        setStatus("Stake bestätigt. Verbinde …");
+        // Je nach Rolle unterschiedliche Statusmeldung
+        const res = await fetch(`/api/game-info?id=${id}`);
+        const data = await res.json();
+        const player1 = data?.onchain?.player1 as string | undefined;
+        const addr = userAddress?.toLowerCase();
+        const isHost = player1 && addr && player1.toLowerCase() === addr;
+
+        setStatus(isHost ? "Warte auf Gegner …" : "Stake bestätigt. Verbinde …");
         connectToGame(id);
       } catch (err) {
         console.error("[waiting-room] game-info fetch failed", err);
