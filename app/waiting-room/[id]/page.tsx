@@ -37,11 +37,12 @@ export default function WaitingRoom() {
     if (!id || !userAddress || hasJoinedRef.current) return;
 
     const verifyAndJoin = async () => {
-      setStatus("Prüfe Escrow-Join …");
-      // Prüfe, ob der Stake lokal bereits als gezahlt markiert ist
+      // Prüfe, ob der Stake lokal bereits als gezahlt markiert ist (nur als Optimierung genutzt)
       const localFlag =
         typeof window !== "undefined" &&
         localStorage.getItem(`escrowJoined-${id}`) === "true";
+
+      setStatus(localFlag ? "Stake lokal bestätigt. Prüfe Escrow-Join …" : "Prüfe Escrow-Join …");
 
       let player1: string | undefined;
       let player2: string | undefined;
@@ -79,14 +80,12 @@ export default function WaitingRoom() {
       }
 
       if (isJoiner) {
-        if (localFlag) {
-          hasJoinedRef.current = true;
-          setStatus("Stake bestätigt. Verbinde …");
-          connectToGame(id);
-        } else {
-          setError("Stake nicht bestätigt. Bitte erneut beitreten.");
-          setStatus("Beitritt nicht bestätigt.");
+        if (typeof window !== "undefined") {
+          localStorage.setItem(`escrowJoined-${id}`, "true");
         }
+        hasJoinedRef.current = true;
+        setStatus("Stake bestätigt. Verbinde …");
+        connectToGame(id);
         return;
       }
 
