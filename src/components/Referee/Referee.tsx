@@ -482,18 +482,22 @@ function isStalemate(board: Board, team: TeamType): boolean {
       <div className="modal hidden" ref={modalRef}>
         <div className="modal-body">
           <img
+            className="promotion-piece"
             onClick={() => promotePawn(PieceType.ROOK)}
             src={`/assets/images/rook_${promotionTeamType()}.png`}
           />
           <img
+            className="promotion-piece"
             onClick={() => promotePawn(PieceType.BISHOP)}
             src={`/assets/images/bishop_${promotionTeamType()}.png`}
           />
           <img
+            className="promotion-piece"
             onClick={() => promotePawn(PieceType.KNIGHT)}
             src={`/assets/images/knight_${promotionTeamType()}.png`}
           />
           <img
+            className="promotion-piece"
             onClick={() => promotePawn(PieceType.QUEEN)}
             src={`/assets/images/queen_${promotionTeamType()}.png`}
           />
