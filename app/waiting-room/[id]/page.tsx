@@ -43,35 +43,45 @@ export default function WaitingRoom() {
         typeof window !== "undefined" &&
         localStorage.getItem(`escrowJoined-${id}`) === "true";
 
-      let escrowJoined = localFlag;
-
       try {
         const res = await fetch(`/api/game-info?id=${id}`);
-        if (res.ok) {
-          const data = await res.json();
-          const player1 = data?.onchain?.player1 as string | undefined;
-          const player2 = data?.onchain?.player2 as string | undefined;
-
-          // Prüfe, ob der Benutzer Host oder bereits bestätigter Joiner ist
-          const addr = userAddress?.toLowerCase();
-          const isHost = player1 && addr && player1.toLowerCase() === addr;
-          const isJoiner = player2 && addr && player2.toLowerCase() === addr;
-
-          // Wenn Host oder Joiner, ist der Escrow-Join bestätigt
-          if (isHost || isJoiner) {
-            escrowJoined = true;
-            if (typeof window !== "undefined") {
-              localStorage.setItem(`escrowJoined-${id}`, "true");
-            }
-          }
-        } else {
+        if (!res.ok) {
+          setError("Spielinformationen konnten nicht geladen werden.");
+          setStatus("Beitritt nicht bestätigt.");
           console.warn("[waiting-room] game-info response not ok", res.status);
+          return;
         }
-      } catch (err) {
-        console.error("[waiting-room] game-info fetch failed", err);
-      }
 
-      if (escrowJoined) {
+        const data = await res.json();
+        const player1 = data?.onchain?.player1 as string | undefined;
+        const player2 = data?.onchain?.player2 as string | undefined;
+        const addr = userAddress?.toLowerCase();
+        const isHost = player1 && addr && player1.toLowerCase() === addr;
+        const isJoiner = player2 && addr && player2.toLowerCase() === addr;
+
+        if (!isHost && !isJoiner) {
+          setError("Du gehörst nicht zu diesem Spiel.");
+          setStatus("Beitritt nicht bestätigt.");
+          return;
+        }
+
+        if (isHost) {
+          if (typeof window !== "undefined") {
+            localStorage.setItem(`escrowJoined-${id}`, "true");
+          }
+          hasJoinedRef.current = true;
+          setStatus("Warte auf Gegner …");
+          connectToGame(id);
+          return;
+        }
+
+        // Joiner: nur nach bestätigtem Stake
+        if (!localFlag) {
+          setError("Kein bestätigter Stake-Join gefunden. Bitte erneut beitreten.");
+          setStatus("Beitritt nicht bestätigt.");
+          return;
+        }
+
         hasJoinedRef.current = true;
         // Je nach Rolle unterschiedliche Statusmeldung
         const res = await fetch(`/api/game-info?id=${id}`);
@@ -82,8 +92,9 @@ export default function WaitingRoom() {
 
         setStatus(isHost ? "Warte auf Gegner …" : "Stake bestätigt. Verbinde …");
         connectToGame(id);
-      } else {
-        setError("Kein bestätigter Stake-Join gefunden. Bitte erneut beitreten.");
+      } catch (err) {
+        console.error("[waiting-room] game-info fetch failed", err);
+        setError("Spielinformationen konnten nicht geladen werden.");
         setStatus("Beitritt nicht bestätigt.");
       }
     };
