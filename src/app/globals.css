@@ -24,3 +24,14 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+:root {
+  --chessboard-size: min(96vmin, 310px);
+  --chess-tile-size: calc(var(--chessboard-size) / 8);
+}
+
+.promotion-piece {
+  width: var(--chess-tile-size);
+  height: var(--chess-tile-size);
+  object-fit: contain;
+}
