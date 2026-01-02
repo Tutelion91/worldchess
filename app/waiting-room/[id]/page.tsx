@@ -42,31 +42,55 @@ export default function WaitingRoom() {
         typeof window !== "undefined" &&
         localStorage.getItem(`escrowJoined-${id}`) === "true";
 
-      let escrowJoined = localFlag;
+      let player1: string | undefined;
+      let player2: string | undefined;
 
       try {
         const res = await fetch(`/api/game-info?id=${id}`);
-        if (res.ok) {
-          const data = await res.json();
-          const player2 = data?.onchain?.player2 as string | undefined;
-          if (player2 && player2.toLowerCase() === userAddress.toLowerCase()) {
-            escrowJoined = true;
-          }
-        } else {
+        if (!res.ok) {
           console.warn("[waiting-room] game-info response not ok", res.status);
+          setError("Spielinformationen konnten nicht geladen werden.");
+          setStatus("Beitritt nicht bestätigt.");
+          return;
         }
+        const data = await res.json();
+        player1 = data?.onchain?.player1 as string | undefined;
+        player2 = data?.onchain?.player2 as string | undefined;
       } catch (err) {
         console.error("[waiting-room] game-info fetch failed", err);
+        setError("Spielinformationen konnten nicht geladen werden.");
+        setStatus("Beitritt nicht bestätigt.");
+        return;
       }
 
-      if (escrowJoined) {
+      const addr = userAddress?.toLowerCase();
+      const isHost = player1 && addr && player1.toLowerCase() === addr;
+      const isJoiner = player2 && addr && player2.toLowerCase() === addr;
+
+      if (isHost) {
+        if (typeof window !== "undefined") {
+          localStorage.setItem(`escrowJoined-${id}`, "true");
+        }
         hasJoinedRef.current = true;
-        setStatus("Stake bestätigt. Verbinde …");
+        setStatus("Warte auf Gegner …");
         connectToGame(id);
-      } else {
-        setError("Kein bestätigter Stake-Join gefunden. Bitte erneut beitreten.");
-        setStatus("Beitritt nicht bestätigt.");
+        return;
       }
+
+      if (isJoiner) {
+        if (localFlag) {
+          hasJoinedRef.current = true;
+          setStatus("Stake bestätigt. Verbinde …");
+          connectToGame(id);
+        } else {
+          setError("Stake nicht bestätigt. Bitte erneut beitreten.");
+          setStatus("Beitritt nicht bestätigt.");
+        }
+        return;
+      }
+
+      setError("Du bist nicht für dieses Spiel registriert.");
+      setStatus("Beitritt nicht bestätigt.");
     };
 
     verifyAndJoin();
