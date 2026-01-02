@@ -38,6 +38,7 @@ export default function WaitingRoom() {
 
     const verifyAndJoin = async () => {
       setStatus("Prüfe Escrow-Join …");
+      // Prüfe, ob der Stake lokal bereits als gezahlt markiert ist
       const localFlag =
         typeof window !== "undefined" &&
         localStorage.getItem(`escrowJoined-${id}`) === "true";
@@ -48,9 +49,20 @@ export default function WaitingRoom() {
         const res = await fetch(`/api/game-info?id=${id}`);
         if (res.ok) {
           const data = await res.json();
+          const player1 = data?.onchain?.player1 as string | undefined;
           const player2 = data?.onchain?.player2 as string | undefined;
-          if (player2 && player2.toLowerCase() === userAddress.toLowerCase()) {
+
+          // Prüfe, ob der Benutzer Host oder bereits bestätigter Joiner ist
+          const addr = userAddress?.toLowerCase();
+          const isHost = player1 && addr && player1.toLowerCase() === addr;
+          const isJoiner = player2 && addr && player2.toLowerCase() === addr;
+
+          // Wenn Host oder Joiner, ist der Escrow-Join bestätigt
+          if (isHost || isJoiner) {
             escrowJoined = true;
+            if (typeof window !== "undefined") {
+              localStorage.setItem(`escrowJoined-${id}`, "true");
+            }
           }
         } else {
           console.warn("[waiting-room] game-info response not ok", res.status);
@@ -61,7 +73,14 @@ export default function WaitingRoom() {
 
       if (escrowJoined) {
         hasJoinedRef.current = true;
-        setStatus("Stake bestätigt. Verbinde …");
+        // Je nach Rolle unterschiedliche Statusmeldung
+        const res = await fetch(`/api/game-info?id=${id}`);
+        const data = await res.json();
+        const player1 = data?.onchain?.player1 as string | undefined;
+        const addr = userAddress?.toLowerCase();
+        const isHost = player1 && addr && player1.toLowerCase() === addr;
+
+        setStatus(isHost ? "Warte auf Gegner …" : "Stake bestätigt. Verbinde …");
         connectToGame(id);
       } else {
         setError("Kein bestätigter Stake-Join gefunden. Bitte erneut beitreten.");
