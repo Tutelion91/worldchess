@@ -38,6 +38,7 @@ export default function WaitingRoom() {
 
     const verifyAndJoin = async () => {
       setStatus("Prüfe Escrow-Join …");
+      // Prüfe, ob der Stake lokal bereits als gezahlt markiert ist
       const localFlag =
         typeof window !== "undefined" &&
         localStorage.getItem(`escrowJoined-${id}`) === "true";
